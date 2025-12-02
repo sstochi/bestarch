@@ -10,6 +10,6 @@ _swi_handler:
     irq.ret
 
 _start:
-    add.pc      r0, ._irq
+    add.pc      r0, ._swi_handler
     ctl.w       swi, r0
     irq.sw      0x1

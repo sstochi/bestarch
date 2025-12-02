@@ -3,15 +3,16 @@ const builtin = @import("builtin");
 const target_endian = builtin.target.cpu.arch.endian();
 
 const isa = @import("cpu/isa.zig");
-const Instruction = isa.Instruction;
+const Inst = isa.Inst;
 const ProcessCode = isa.ProcessCode;
-const ProcessMode1 = isa.ProcessMode1;
-const ProcessMode2 = isa.ProcessMode2;
+const ProcessSize = isa.ProcessSize;
+const MemorySize = isa.MemorySize;
 const ShiftType = isa.ShiftType;
-const CompareFlags = isa.CompareFlags;
-const Register = isa.Register;
-const CtlRegister = isa.CtlRegister;
+const CompareFlags = isa.CmpFlags;
+const Reg = isa.Reg;
+const CtlReg = isa.CtlReg;
 const CtlMode = isa.CtlMode;
+const InstProcessImm = isa.InstProcessImm;
 
 const allocator = std.heap.page_allocator;
 const error_immediate_too_big = "Immediate value {} doesn't fit into an integer of type {s}";
@@ -106,7 +107,7 @@ const TokenData = union(enum) {
     @"<<",
     @">>",
 
-    reg: Register,
+    reg: Reg,
     inst: InstKind,
 
     eof,
@@ -193,7 +194,7 @@ const Parser = struct {
                         }
                     }
                     const source = self.buf[start..self.idx];
-                    if (std.meta.stringToEnum(Register, source)) |reg| break :b TokenData{ .reg = reg };
+                    if (std.meta.stringToEnum(Reg, source)) |reg| break :b TokenData{ .reg = reg };
                     if (std.meta.stringToEnum(InstKind, source)) |inst| break :b TokenData{ .inst = inst };
                     break :b TokenData{ .ident = source };
                 },
@@ -284,7 +285,7 @@ const Parser = struct {
         return try self.intCast(T, value);
     }
 
-    fn register(self: *Parser, name: []const u8) Error!Register {
+    fn register(self: *Parser, name: []const u8) Error!Reg {
         return try self.expect(.reg) orelse {
             return self.err("Expected {s} register", .{name});
         };
@@ -332,10 +333,298 @@ const Assembler = struct {
         try self.write(@ptrCast(&if (target_endian == .little) value else @byteSwap(value)));
     }
 
-    fn inst(self: *Assembler, instr: Instruction) Error!void {
+    fn inst(self: *Assembler, instr: Inst) Error!void {
         const offset = self.binary.items.len % 4;
         if (offset != 0) try self.binary.appendNTimes(allocator, 0, 4 - offset);
         try self.int(u32, @bitCast(instr));
+    }
+
+    inline fn parseConstant(self: *Assembler, parser: *Parser, comptime I: type) Error!void {
+        try self.int(I, @truncate(try parser.integer(I)));
+    }
+
+    inline fn parseAddPC(self: *Assembler, parser: *Parser) Error!void {
+        const dst_reg = try parser.register("dst");
+        try parser.operator(.@",");
+
+        const tok = try parser.token();
+        switch (tok.data) {
+            .ident => |name| {
+                try self.forward_labels.append(allocator, ForwardLabel{
+                    .name = try parser.checkLabel(name),
+                    .source = self.binary.items.len,
+                    .kind = .addpc,
+                });
+
+                try self.inst(Inst{ .addpc = .{
+                    .dst = dst_reg,
+                    .offset = undefined,
+                } });
+            },
+
+            .integer => |val| {
+                try self.inst(Inst{ .addpc = .{
+                    .dst = dst_reg,
+                    .offset = @truncate(val),
+                } });
+            },
+
+            else => return parser.err("Unexpected {t}", .{tok.data}),
+        }
+    }
+
+    inline fn parseProcessInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
+        const dst_reg = try parser.register("dst");
+        try parser.operator(.@",");
+        const lhs_reg = try parser.register("lhs");
+        try parser.operator(.@",");
+
+        const code: ProcessCode = switch (kind) {
+            .@"and.i32", .@"and.i64" => .@"and",
+            .@"or.i32", .@"or.i64" => .@"or",
+            .@"xor.i32", .@"xor.i64" => .xor,
+            .@"shl.i32", .@"shl.i64" => .lsl,
+            .@"shr.u32", .@"shr.u64" => .lsr,
+            .@"shr.s32", .@"shr.s64" => .asr,
+            .@"add.i32", .@"add.i64" => .add,
+            .@"sub.i32", .@"sub.i64" => .sub,
+            .@"mul.i32", .@"mul.i64" => .mul,
+            .@"div.u32", .@"div.u64" => .divu,
+            .@"div.s32", .@"div.s64" => .divs,
+            .@"mod.u32", .@"mod.u64" => .modu,
+            .@"mod.s32", .@"mod.s64" => .mods,
+            else => unreachable,
+        };
+
+        const mode: ProcessSize = switch (kind) {
+            .@"and.i32",
+            .@"or.i32",
+            .@"xor.i32",
+            .@"shl.i32",
+            .@"shr.u32",
+            .@"shr.s32",
+            .@"add.i32",
+            .@"sub.i32",
+            .@"mul.i32",
+            .@"div.u32",
+            .@"div.s32",
+            .@"mod.u32",
+            .@"mod.s32",
+            => .m32,
+            else => .m64,
+        };
+
+        const lhs_tok = try parser.token();
+        switch (lhs_tok.data) {
+            .integer => |value_imm| {
+                const value = try parser.intCast(i12, value_imm);
+
+                try self.inst(Inst{ .process_imm = .{
+                    .code = code,
+                    .size = mode,
+                    .dst = dst_reg,
+                    .lhs = lhs_reg,
+                    .imm = value,
+                } });
+            },
+            .reg => |rhs_reg| {
+                var amount: u6 = 0;
+                var shift: ShiftType = .lsl;
+
+                const op_tok = try parser.peek();
+                switch (op_tok.data) {
+                    .@"<<", .@">>" => {
+                        parser.skip(); // consume token
+
+                        shift = switch (op_tok.data) {
+                            .@"<<" => .lsl,
+                            .@">>" => .lsr,
+                            else => unreachable,
+                        };
+
+                        amount = try parser.integer(u6);
+                    },
+                    else => {},
+                }
+
+                try self.inst(Inst{ .process_reg = .{
+                    .code = code,
+                    .size = mode,
+                    .dst = dst_reg,
+                    .lhs = lhs_reg,
+                    .value = rhs_reg,
+                    .shift = shift,
+                    .amount = amount,
+                } });
+            },
+            else => {
+                const RhsImm = @FieldType(InstProcessImm, "imm");
+                return parser.err(
+                    "Instruction takes either a shifted register or a {}-bit immediate offset!",
+                    .{@bitSizeOf(RhsImm)},
+                );
+            },
+        }
+    }
+
+    inline fn parseMemoryInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
+        const value_reg = try parser.register("value");
+        try parser.operator(.@",");
+        const base_reg = try parser.register("base");
+
+        var offset: i14 = 0;
+        if (try parser.expect(.@"+")) |_| {
+            offset = try parser.integer(i14);
+        }
+
+        const mode: MemorySize = switch (kind) {
+            .@"ldr.u8", .@"ldr.s8", .@"str.i8" => .m8,
+            .@"ldr.u16", .@"ldr.s16", .@"str.i16" => .m16,
+            .@"ldr.u32", .@"ldr.s32", .@"str.i32" => .m32,
+            .@"ldr.i64", .@"str.i64" => .m64,
+            else => unreachable,
+        };
+
+        const signed = switch (kind) {
+            .@"ldr.s8", .@"ldr.s16", .@"ldr.s32" => true,
+            else => false,
+        };
+
+        const store = switch (kind) {
+            .@"str.i8", .@"str.i16", .@"str.i32", .@"str.i64" => true,
+            else => false,
+        };
+
+        try self.inst(Inst{ .memory = .{
+            .mode = mode,
+            .signed = signed,
+            .store = store,
+
+            .value = value_reg,
+            .base = base_reg,
+            .offset = offset,
+        } });
+    }
+
+    inline fn parseBranchInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
+        var lhs_reg = try parser.register("lhs");
+        try parser.operator(.@",");
+        var rhs_reg = try parser.register("rhs");
+        try parser.operator(.@",");
+
+        const flags: CompareFlags = switch (kind) {
+            .@"b.eq" => CompareFlags{ .compare = false, .flip = false, .signed = false },
+            .@"b.ne" => CompareFlags{ .compare = false, .flip = true, .signed = false },
+            .@"b.ltu", .@"b.gtu" => CompareFlags{ .compare = true, .flip = false, .signed = false },
+            .@"b.geu", .@"b.leu" => CompareFlags{ .compare = true, .flip = true, .signed = false },
+            .@"b.lts", .@"b.gts" => CompareFlags{ .compare = true, .flip = false, .signed = true },
+            .@"b.ges", .@"b.les" => CompareFlags{ .compare = true, .flip = true, .signed = true },
+            else => unreachable,
+        };
+
+        switch (kind) {
+            .@"b.gtu", .@"b.leu", .@"b.gts", .@"b.les" => std.mem.swap(Reg, &lhs_reg, &rhs_reg),
+            else => {},
+        }
+
+        const tok = try parser.token();
+        var offset: i15 = 0;
+
+        switch (tok.data) {
+            .ident => |name| {
+                try self.forward_labels.append(allocator, ForwardLabel{
+                    .name = try parser.checkLabel(name),
+                    .source = self.binary.items.len,
+                    .kind = .branch,
+                });
+            },
+            .integer => |val| offset = try parser.intCast(i15, val),
+            else => return parser.err("Unexpected {t}", .{tok.data}),
+        }
+
+        try self.inst(Inst{ .branch = .{
+            .lhs = lhs_reg,
+            .rhs = rhs_reg,
+            .flags = flags,
+            .offset = offset,
+        } });
+    }
+
+    inline fn parseJumpInstr(self: *Assembler, parser: *Parser) Error!void {
+        const link_reg = try parser.register("link");
+        try parser.operator(.@",");
+
+        const tok = try parser.token();
+        switch (tok.data) {
+            .ident => |name| {
+                try self.forward_labels.append(allocator, ForwardLabel{
+                    .name = try parser.checkLabel(name),
+                    .source = self.binary.items.len,
+                    .kind = .jump,
+                });
+
+                try self.inst(Inst{ .jump_rel = .{
+                    .link = link_reg,
+                    .offset = 0,
+                } });
+            },
+
+            .integer => |val| {
+                try self.inst(Inst{ .jump_rel = .{
+                    .link = link_reg,
+                    .offset = @truncate(val),
+                } });
+            },
+
+            .reg => |base| {
+                try self.inst(Inst{ .jump_reg = .{
+                    .link = link_reg,
+                    .base = base,
+                    .offset = try parser.integer(i18),
+                } });
+            },
+
+            else => return parser.err("Unexpected {t}", .{tok.data}),
+        }
+    }
+
+    inline fn parseIrqInstr(self: *Assembler, parser: *Parser) Error!void {
+        if (try parser.expect(.integer)) |val| {
+            try self.inst(Inst{ .irq = .{
+                .mode = .swi,
+                .code = @truncate(@as(u64, @bitCast(val))),
+            } });
+        } else {
+            try self.inst(Inst{ .irq = .{
+                .mode = .ret,
+            } });
+        }
+    }
+
+    inline fn parseCtlInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
+        const name = try parser.expect(.ident) orelse {
+            return parser.err("Expected a control register", .{});
+        };
+        const ctl_reg = std.meta.stringToEnum(CtlReg, name) orelse {
+            return parser.err("Invalid control register", .{});
+        };
+
+        try parser.operator(.@",");
+        const val_reg = try parser.register("value");
+
+        const mode: CtlMode = switch (kind) {
+            .@"ctl.w" => .write,
+            .@"ctl.r" => .read,
+            .@"ctl.s" => .set,
+            .@"ctl.u" => .unset,
+            else => unreachable,
+        };
+
+        try self.inst(Inst{ .ctl = .{
+            .mode = mode,
+            .target = ctl_reg,
+            .reg = val_reg,
+        } });
     }
 
     fn parseInst(self: *Assembler, parser: *Parser) Error!void {
@@ -368,25 +657,21 @@ const Assembler = struct {
                     .@".i32" => try parseConstant(self, parser, i32),
                     .@".i64" => try parseConstant(self, parser, i64),
 
-                    .nop => try self.inst(Instruction{
-                        .move = .{
-                            .dst = .rZ,
-                            .mode = .imm,
-                            .src = .{ .imm = 0 },
-                        },
-                    }),
+                    .nop => try self.inst(Inst{ .move_imm = .{
+                        .dst = .rZ,
+                        .mode = .imm,
+                        .imm = 0,
+                    } }),
 
                     // mov rd, i21
                     .mov => {
                         const dst_reg = try parser.register("dst");
                         try parser.operator(.@",");
-                        try self.inst(Instruction{
-                            .move = .{
-                                .dst = dst_reg,
-                                .mode = .imm,
-                                .src = .{ .imm = try parser.integer(i21) },
-                            },
-                        });
+                        try self.inst(Inst{ .move_imm = .{
+                            .dst = dst_reg,
+                            .mode = .imm,
+                            .imm = try parser.integer(i21),
+                        } });
                     },
 
                     .@"add.pc" => try self.parseAddPC(parser),
@@ -458,301 +743,6 @@ const Assembler = struct {
             else => return error.ParseError,
         }
     }
-
-    inline fn parseConstant(self: *Assembler, parser: *Parser, comptime I: type) Error!void {
-        try self.int(I, @truncate(try parser.integer(I)));
-    }
-
-    inline fn parseAddPC(self: *Assembler, parser: *Parser) Error!void {
-        const dst_reg = try parser.register("dst");
-        try parser.operator(.@",");
-
-        const tok = try parser.token();
-        switch (tok.data) {
-            .ident => |name| {
-                try self.forward_labels.append(allocator, ForwardLabel{
-                    .name = try parser.checkLabel(name),
-                    .source = self.binary.items.len,
-                    .kind = .addpc,
-                });
-
-                try self.inst(Instruction{ .addpc = .{
-                    .dst = dst_reg,
-                    .offset = undefined,
-                } });
-            },
-
-            .integer => |val| {
-                try self.inst(Instruction{ .addpc = .{
-                    .dst = dst_reg,
-                    .offset = @truncate(val),
-                } });
-            },
-
-            else => return parser.err("Unexpected {t}", .{tok.data}),
-        }
-    }
-
-    inline fn parseProcessInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
-        const dst_reg = try parser.register("dst");
-        try parser.operator(.@",");
-        const lhs_reg = try parser.register("lhs");
-        try parser.operator(.@",");
-
-        const code: ProcessCode = switch (kind) {
-            .@"and.i32", .@"and.i64" => .@"and",
-            .@"or.i32", .@"or.i64" => .@"or",
-            .@"xor.i32", .@"xor.i64" => .xor,
-            .@"shl.i32", .@"shl.i64" => .lsl,
-            .@"shr.u32", .@"shr.u64" => .lsr,
-            .@"shr.s32", .@"shr.s64" => .asr,
-            .@"add.i32", .@"add.i64" => .add,
-            .@"sub.i32", .@"sub.i64" => .sub,
-            .@"mul.i32", .@"mul.i64" => .mul,
-            .@"div.u32", .@"div.u64" => .divu,
-            .@"div.s32", .@"div.s64" => .divs,
-            .@"mod.u32", .@"mod.u64" => .modu,
-            .@"mod.s32", .@"mod.s64" => .mods,
-            else => unreachable,
-        };
-
-        const mode: ProcessMode1 = switch (kind) {
-            .@"and.i32",
-            .@"or.i32",
-            .@"xor.i32",
-            .@"shl.i32",
-            .@"shr.u32",
-            .@"shr.s32",
-            .@"add.i32",
-            .@"sub.i32",
-            .@"mul.i32",
-            .@"div.u32",
-            .@"div.s32",
-            .@"mod.u32",
-            .@"mod.s32",
-            => .m32,
-            else => .m64,
-        };
-
-        const lhs_tok = try parser.token();
-        switch (lhs_tok.data) {
-            .integer => |value_imm| {
-                const value = std.math.cast(i12, value_imm) orelse
-                    return parser.err(error_immediate_too_big, .{ value_imm, @typeName(i12) });
-
-                try self.inst(Instruction{ .process = .{
-                    .code = code,
-                    .mode = mode,
-                    .dst = dst_reg,
-                    .lhs = lhs_reg,
-                    .rhs_mode = .imm,
-                    .rhs = .{ .imm = value },
-                } });
-            },
-            .reg => |rhs_reg| {
-                var amount: u6 = 0;
-                var shift: ShiftType = .lsl;
-
-                const op_tok = try parser.peek();
-                switch (op_tok.data) {
-                    .@"<<", .@">>" => {
-                        parser.skip(); // consume token
-
-                        shift = switch (op_tok.data) {
-                            .@"<<" => .lsl,
-                            .@">>" => .lsr,
-                            else => unreachable,
-                        };
-
-                        amount = try parser.integer(u6);
-                    },
-                    else => {},
-                }
-
-                try self.inst(Instruction{ .process = .{
-                    .code = code,
-                    .mode = mode,
-                    .dst = dst_reg,
-                    .lhs = lhs_reg,
-                    .rhs_mode = .reg,
-                    .rhs = .{ .reg = .{
-                        .value = rhs_reg,
-                        .shift = shift,
-                        .amount = amount,
-                    } },
-                } });
-            },
-            else => {
-                const Rhs = @FieldType(Instruction.Process, "rhs");
-                return parser.err("Instruction takes either a shifted register or a {}-bit immediate offset!", .{
-                    @bitSizeOf(@FieldType(Rhs, "imm")),
-                });
-            },
-        }
-    }
-
-    inline fn parseMemoryInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
-        const value_reg = try parser.register("value");
-        try parser.operator(.@",");
-        const base_reg = try parser.register("base");
-
-        var offset: i14 = 0;
-        if (try parser.expect(.@"+")) |_| {
-            offset = try parser.integer(i14);
-        }
-
-        const mode: ProcessMode2 = switch (kind) {
-            .@"ldr.u8", .@"ldr.s8", .@"str.i8" => .m8,
-            .@"ldr.u16", .@"ldr.s16", .@"str.i16" => .m16,
-            .@"ldr.u32", .@"ldr.s32", .@"str.i32" => .m32,
-            .@"ldr.i64", .@"str.i64" => .m64,
-            else => unreachable,
-        };
-
-        const signed = switch (kind) {
-            .@"ldr.s8", .@"ldr.s16", .@"ldr.s32" => true,
-            else => false,
-        };
-
-        const store = switch (kind) {
-            .@"str.i8", .@"str.i16", .@"str.i32", .@"str.i64" => true,
-            else => false,
-        };
-
-        try self.inst(Instruction{ .memory = .{
-            .mode = mode,
-            .signed = signed,
-            .store = store,
-
-            .value = value_reg,
-            .base = base_reg,
-            .offset = offset,
-        } });
-    }
-
-    inline fn parseBranchInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
-        var lhs_reg = try parser.register("lhs");
-        try parser.operator(.@",");
-        var rhs_reg = try parser.register("rhs");
-        try parser.operator(.@",");
-
-        const flags: CompareFlags = switch (kind) {
-            .@"b.eq" => CompareFlags{ .compare = false, .flip = false, .signed = false },
-            .@"b.ne" => CompareFlags{ .compare = false, .flip = true, .signed = false },
-            .@"b.ltu", .@"b.gtu" => CompareFlags{ .compare = true, .flip = false, .signed = false },
-            .@"b.geu", .@"b.leu" => CompareFlags{ .compare = true, .flip = true, .signed = false },
-            .@"b.lts", .@"b.gts" => CompareFlags{ .compare = true, .flip = false, .signed = true },
-            .@"b.ges", .@"b.les" => CompareFlags{ .compare = true, .flip = true, .signed = true },
-            else => unreachable,
-        };
-
-        switch (kind) {
-            .@"b.gtu", .@"b.leu", .@"b.gts", .@"b.les" => std.mem.swap(Register, &lhs_reg, &rhs_reg),
-            else => {},
-        }
-
-        const tok = try parser.token();
-        var offset: i15 = 0;
-
-        switch (tok.data) {
-            .ident => |name| {
-                try self.forward_labels.append(allocator, ForwardLabel{
-                    .name = try parser.checkLabel(name),
-                    .source = self.binary.items.len,
-                    .kind = .branch,
-                });
-            },
-            .integer => |val| offset = try parser.intCast(i15, val),
-            else => return parser.err("Unexpected {t}", .{tok.data}),
-        }
-
-        try self.inst(Instruction{ .branch = .{
-            .lhs = lhs_reg,
-            .rhs = rhs_reg,
-            .flags = flags,
-            .offset = offset,
-        } });
-    }
-
-    inline fn parseJumpInstr(self: *Assembler, parser: *Parser) Error!void {
-        const link_reg = try parser.register("link");
-        try parser.operator(.@",");
-
-        const tok = try parser.token();
-        switch (tok.data) {
-            .ident => |name| {
-                try self.forward_labels.append(allocator, ForwardLabel{
-                    .name = try parser.checkLabel(name),
-                    .source = self.binary.items.len,
-                    .kind = .jump,
-                });
-
-                try self.inst(Instruction{ .jump_rel = .{
-                    .link = link_reg,
-                    .offset = 0,
-                } });
-            },
-
-            .integer => |val| {
-                try self.inst(Instruction{ .jump_rel = .{
-                    .link = link_reg,
-                    .offset = @truncate(val),
-                } });
-            },
-
-            .reg => |base| {
-                try self.inst(Instruction{ .jump_reg = .{
-                    .link = link_reg,
-                    .base = base,
-                    .offset = try parser.integer(i18),
-                } });
-            },
-
-            else => return parser.err("Unexpected {t}", .{tok.data}),
-        }
-    }
-
-    inline fn parseIrqInstr(self: *Assembler, parser: *Parser) Error!void {
-        if (try parser.expect(.integer)) |val| {
-            try self.inst(Instruction{ .irq = .{
-                .mode = .swi,
-                .value = .{
-                    .code = @truncate(@as(u64, @bitCast(val))),
-                },
-            } });
-        } else {
-            try self.inst(Instruction{ .irq = .{
-                .mode = .ret,
-                .value = .{ .ret = .{} },
-            } });
-        }
-    }
-
-    inline fn parseCtlInstr(self: *Assembler, parser: *Parser, kind: InstKind) Error!void {
-        const name = try parser.expect(.ident) orelse {
-            return parser.err("Expected a control register", .{});
-        };
-        const ctl_reg = std.meta.stringToEnum(CtlRegister, name) orelse {
-            return parser.err("Invalid control register", .{});
-        };
-
-        try parser.operator(.@",");
-        const val_reg = try parser.register("value");
-
-        const mode: CtlMode = switch (kind) {
-            .@"ctl.w" => .write,
-            .@"ctl.r" => .read,
-            .@"ctl.s" => .set,
-            .@"ctl.u" => .unset,
-            else => unreachable,
-        };
-
-        try self.inst(Instruction{ .ctl = .{
-            .mode = mode,
-            .target = ctl_reg,
-            .reg = val_reg,
-        } });
-    }
 };
 
 // const std = @import("std");
@@ -811,14 +801,14 @@ fn assemble(source: []const u8) Error!struct { []u8, std.StringHashMapUnmanaged(
             std.debug.print("Lable not found: {s}\n", .{label.name});
             return error.ParseError;
         };
-        const inst_ref: *align(1) Instruction = @ptrCast(&assembler.binary.items[label.source]);
+        const inst_ref: *align(1) Inst = @ptrCast(&assembler.binary.items[label.source]);
 
         var offset: i64 = @intCast(label_loc);
-        offset -= @intCast(label.source + @sizeOf(Instruction));
+        offset -= @intCast(label.source + @sizeOf(Inst));
 
         switch (label.kind) {
             .branch => {
-                offset = @divTrunc(offset, @sizeOf(Instruction));
+                offset = @divTrunc(offset, @sizeOf(Inst));
                 inst_ref.branch.offset = std.math.cast(i15, offset) orelse {
                     std.debug.print(error_immediate_too_big, .{ offset, @typeName(i15) });
                     return error.ParseError;
@@ -826,7 +816,7 @@ fn assemble(source: []const u8) Error!struct { []u8, std.StringHashMapUnmanaged(
             },
 
             .jump => {
-                offset = @divTrunc(offset, @sizeOf(Instruction));
+                offset = @divTrunc(offset, @sizeOf(Inst));
                 inst_ref.jump_rel.offset = std.math.cast(i23, offset) orelse {
                     std.debug.print(error_immediate_too_big, .{ offset, @typeName(i23) });
                     return error.ParseError;

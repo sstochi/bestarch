@@ -57,4 +57,27 @@ pub fn build(b: *std.Build) void {
             run_cmd.addArgs(args);
         }
     }
+
+    {
+        const exe = b.addExecutable(.{
+            .name = "data",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("src/cpu/data.zig"),
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+
+        b.installArtifact(exe);
+
+        const run_step = b.step("data", "Run the app");
+        const run_cmd = b.addRunArtifact(exe);
+        run_step.dependOn(&run_cmd.step);
+
+        run_cmd.step.dependOn(b.getInstallStep());
+
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+        }
+    }
 }

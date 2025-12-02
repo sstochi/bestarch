@@ -1,4 +1,4 @@
-pub const Register = enum(u5) {
+pub const Reg = enum(u5) {
     r0,
     r1,
     r2,
@@ -33,7 +33,7 @@ pub const Register = enum(u5) {
     rZ,
 };
 
-pub const CtlRegister = enum(u3) {
+pub const CtlReg = enum(u3) {
     control,
     hwi, // hw interrupt
     tmi, // sw interrupt
@@ -71,12 +71,12 @@ pub const ProcessCode = enum(u4) {
     _,
 };
 
-pub const ProcessMode1 = enum(u1) {
+pub const ProcessSize = enum(u1) {
     m32,
     m64,
 };
 
-pub const ProcessMode2 = enum(u2) {
+pub const MemorySize = enum(u2) {
     m8,
     m16,
     m32,
@@ -88,7 +88,7 @@ pub const ShiftType = enum(u1) {
     lsr,
 };
 
-pub const CompareFlags = packed struct(u3) {
+pub const CmpFlags = packed struct(u3) {
     compare: bool,
     flip: bool,
     signed: bool,
@@ -101,144 +101,197 @@ pub const CtlMode = enum(u2) {
     unset,
 };
 
-pub const Instruction = packed union {
-    pub const Move = packed struct(u32) {
-        group: Group = .move,
+pub const MoveMode = enum(u2) {
+    imm,
+    imm_shift,
+    reg,
+    cvt,
+};
 
-        mode: enum(u2) {
-            imm,
-            imm_shift,
-            reg,
-            cvt,
-        },
+pub const InstMoveImm = packed struct(u32) {
+    group: Group = .move,
 
-        dst: Register,
-        src: packed union {
-            imm: i21,
+    mode: MoveMode = .imm,
 
-            imm_shift: packed struct(u21) {
-                value: i15,
-                left_amount: u6,
-            },
+    dst: Reg,
+    imm: i21,
+};
 
-            reg: packed struct(u21) {
-                value: Register,
-                left_amount: u6,
-                signed: bool,
-                right_amount: u6,
-                reserved: u3 = 0,
-            },
+pub const InstMoveImmShift = packed struct(u32) {
+    group: Group = .move,
 
-            cvt: packed struct(u21) {
-                code: enum(u5) {
-                    fcvt_u32_f32,
-                    fcvt_s32_f32,
-                    fcvt_u64_f32,
-                    fcvt_s64_f32,
-                    fcvt_u32_f64,
-                    fcvt_s32_f64,
-                    fcvt_u64_f64,
-                    fcvt_s64_f64,
-                    fcvt_f32_u32,
-                    fcvt_f32_s32,
-                    fcvt_f32_u64,
-                    fcvt_f32_s64,
-                    fcvt_f64_u32,
-                    fcvt_f64_s32,
-                    fcvt_f64_u64,
-                    fcvt_f64_s64,
-                    fmov_f32_f64,
-                    fmov_f64_f32,
-                },
-                src: Register,
-                reserved: u11 = 0,
-            },
-        },
-    };
+    mode: MoveMode = .imm_shift,
 
-    pub const AddPC = packed struct(u32) {
-        group: Group = .addpc,
-        dst: Register,
-        offset: i23,
-    };
+    dst: Reg,
+    value: i15,
+    left_amount: u6,
+};
 
-    pub const Process = packed struct(u32) {
-        group: Group = .process,
-        code: ProcessCode,
-        mode: ProcessMode1,
+pub const InstMoveReg = packed struct(u32) {
+    group: Group = .move,
 
-        dst: Register,
-        lhs: Register,
-        rhs_mode: enum(u1) { imm, reg },
-        rhs: packed union {
-            imm: i12,
+    mode: MoveMode = .reg,
 
-            reg: packed struct(u12) {
-                value: Register,
-                shift: ShiftType,
-                amount: u6,
-            },
-        },
-    };
+    dst: Reg,
+    value: Reg,
+    left_amount: u6,
+    signed: bool,
+    right_amount: u6,
+    reserved: u3 = 0,
+};
 
-    pub const Memory = packed struct(u32) {
-        group: Group = .memory,
-        mode: ProcessMode2,
-        signed: bool,
-        store: bool,
+const MoveCvtCode = enum(u5) {
+    fcvt_u32_f32,
+    fcvt_s32_f32,
+    fcvt_u64_f32,
+    fcvt_s64_f32,
+    fcvt_u32_f64,
+    fcvt_s32_f64,
+    fcvt_u64_f64,
+    fcvt_s64_f64,
+    fcvt_f32_u32,
+    fcvt_f32_s32,
+    fcvt_f32_u64,
+    fcvt_f32_s64,
+    fcvt_f64_u32,
+    fcvt_f64_s32,
+    fcvt_f64_u64,
+    fcvt_f64_s64,
+    fmov_f32_f64,
+    fmov_f64_f32,
+};
 
-        value: Register,
-        base: Register,
-        offset: i14,
-    };
+pub const InstMoveCvt = packed struct(u32) {
+    group: Group = .move,
 
-    pub const Branch = packed struct(u32) {
-        group: Group = .branch,
-        lhs: Register,
-        rhs: Register,
-        flags: CompareFlags,
-        offset: i15,
-    };
+    mode: MoveMode = .cvt,
 
-    pub const JumpRel = packed struct(u32) {
-        group: Group = .jump_rel,
-        link: Register,
-        offset: i23,
-    };
+    dst: Reg,
+    code: MoveCvtCode,
+    src: Reg,
+    reserved: u11 = 0,
+};
 
-    pub const JumpReg = packed struct(u32) {
-        group: Group = .jump_reg,
-        link: Register,
-        base: Register,
-        offset: i18,
-    };
+pub const InstMove = packed struct(u32) {
+    group: Group = .move,
 
-    pub const Ctl = packed struct(u32) {
-        group: Group = .ctl,
-        mode: CtlMode,
-        target: CtlRegister,
-        reg: Register,
-        reserved: u18 = 0,
-    };
+    mode: MoveMode,
 
-    pub const Irq = packed struct(u32) {
-        group: Group = .irq,
-        mode: enum(u1) { swi, ret },
+    dst: Reg,
+    pad: u21,
+};
 
-        value: packed union {
-            code: u27,
-            ret: packed struct(u27) { reserved: u27 = 0 },
-        },
-    };
+pub const InstAddPC = packed struct(u32) {
+    group: Group = .addpc,
+    dst: Reg,
+    offset: i23,
+};
 
-    group: packed struct(u32) { group: Group, reserved: u28 },
-    move: Move,
-    process: Process,
-    addpc: AddPC,
-    memory: Memory,
-    branch: Branch,
-    jump_rel: JumpRel,
-    jump_reg: JumpReg,
-    ctl: Ctl,
-    irq: Irq,
+pub const ProcessMode = enum(u1) { imm, reg };
+
+pub const InstProcessImm = packed struct(u32) {
+    group: Group = .process,
+    code: ProcessCode,
+    size: ProcessSize,
+
+    dst: Reg,
+    lhs: Reg,
+    rhs_mode: ProcessMode = .imm,
+    imm: i12,
+};
+
+pub const InstProcessReg = packed struct(u32) {
+    group: Group = .process,
+    code: ProcessCode,
+    size: ProcessSize,
+
+    dst: Reg,
+    lhs: Reg,
+    rhs_mode: ProcessMode = .reg,
+    value: Reg,
+    shift: ShiftType,
+    amount: u6,
+};
+
+pub const InstProcess = packed struct(u32) {
+    group: Group = .process,
+    code: ProcessCode,
+    size: ProcessSize,
+
+    dst: Reg,
+    lhs: Reg,
+    rhs_mode: ProcessMode,
+    pad: u12,
+};
+
+pub const InstMemory = packed struct(u32) {
+    group: Group = .memory,
+    mode: MemorySize,
+    signed: bool,
+    store: bool,
+
+    value: Reg,
+    base: Reg,
+    offset: i14,
+};
+
+pub const InstBranch = packed struct(u32) {
+    group: Group = .branch,
+    lhs: Reg,
+    rhs: Reg,
+    flags: CmpFlags,
+    offset: i15,
+};
+
+pub const InstJumpRel = packed struct(u32) {
+    group: Group = .jump_rel,
+    link: Reg,
+    offset: i23,
+};
+
+pub const InstJumpReg = packed struct(u32) {
+    group: Group = .jump_reg,
+    link: Reg,
+    base: Reg,
+    offset: i18,
+};
+
+pub const InstCtl = packed struct(u32) {
+    group: Group = .ctl,
+    mode: CtlMode,
+    target: CtlReg,
+    reg: Reg,
+    reserved: u18 = 0,
+};
+
+const IrqMode = enum(u1) { swi, ret };
+
+pub const InstIrq = packed struct(u32) {
+    group: Group = .irq,
+    mode: IrqMode,
+    code: u27 = 0,
+};
+
+pub const UnknownInst = packed struct(u32) {
+    group: Group,
+    reserved: u28,
+};
+
+pub const Inst = packed union {
+    unknown: UnknownInst,
+    move: InstMove,
+    move_imm: InstMoveImm,
+    move_imm_shift: InstMoveImmShift,
+    move_reg: InstMoveReg,
+    move_cvt: InstMoveCvt,
+    process: InstProcess,
+    process_imm: InstProcessImm,
+    process_reg: InstProcessReg,
+    addpc: InstAddPC,
+    memory: InstMemory,
+    branch: InstBranch,
+    jump_rel: InstJumpRel,
+    jump_reg: InstJumpReg,
+    ctl: InstCtl,
+    irq: InstIrq,
 };

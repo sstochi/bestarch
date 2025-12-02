@@ -2,7 +2,7 @@ const std = @import("std");
 const isa = @import("cpu/isa.zig");
 const Memory = @import("Memory.zig");
 const Cpu = @import("cpu/Cpu.zig");
-const Instruction = isa.Instruction;
+const Inst = isa.Inst;
 
 const allocator = std.heap.page_allocator;
 
@@ -11,55 +11,53 @@ pub fn main() !void {
     var i: u64 = 0;
     var cpu = Cpu.create(&memory, 0);
 
-    try memory.store(i, Instruction, Instruction{ .move = .{
+    try memory.store(i, Inst, Inst{ .move_imm = .{
         .dst = .r0,
         .mode = .imm,
-        .src = .{ .imm = 0x10 },
+        .imm = 0x10,
     } });
-    i += @sizeOf(Instruction);
+    i += @sizeOf(Inst);
 
-    try memory.store(i, Instruction, Instruction{ .move = .{
+    try memory.store(i, Inst, Inst{ .move_imm = .{
         .dst = .r1,
         .mode = .imm,
-        .src = .{ .imm = 0x20 },
+        .imm = 0x20,
     } });
-    i += @sizeOf(Instruction);
+    i += @sizeOf(Inst);
 
-    try memory.store(i, Instruction, Instruction{
-        .branch = .{
-            .lhs = .r1,
-            .rhs = .r0,
-            .offset = @sizeOf(Instruction) >> 2,
-            .flags = .{
-                .compare = true,
-                .signed = false,
-                .flip = false,
-            },
+    try memory.store(i, Inst, Inst{ .branch = .{
+        .lhs = .r1,
+        .rhs = .r0,
+        .offset = @sizeOf(Inst) >> 2,
+        .flags = .{
+            .compare = true,
+            .signed = false,
+            .flip = false,
         },
-    });
-    i += @sizeOf(Instruction);
+    } });
+    i += @sizeOf(Inst);
 
-    try memory.store(i, Instruction, Instruction{ .move = .{
+    try memory.store(i, Inst, Inst{ .move_imm = .{
         .dst = .r0,
         .mode = .imm,
-        .src = .{ .imm = 0x40 },
+        .imm = 0x40,
     } });
-    i += @sizeOf(Instruction);
+    i += @sizeOf(Inst);
 
-    try memory.store(i, Instruction, Instruction{
+    try memory.store(i, Inst, Inst{
         .jump_rel = .{
             .link = .rZ,
-            .offset = @sizeOf(Instruction) >> 2,
+            .offset = @sizeOf(Inst) >> 2,
         },
     });
-    i += @sizeOf(Instruction);
+    i += @sizeOf(Inst);
 
-    try memory.store(i, Instruction, Instruction{ .move = .{
+    try memory.store(i, Inst, Inst{ .move_imm = .{
         .dst = .r0,
         .mode = .imm,
-        .src = .{ .imm = 0x69 },
+        .imm = 0x69,
     } });
-    i += @sizeOf(Instruction);
+    i += @sizeOf(Inst);
 
     try cpu.eval(i);
     std.debug.print("{}\n", .{cpu.get(.r0, u64)});

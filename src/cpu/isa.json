@@ -1,0 +1,235 @@
+{
+  "enum:5:Reg": {
+    "r0": "0",
+    "r1": "1",
+    "r2": "2",
+    "r3": "3",
+    "r4": "4",
+    "r5": "5",
+    "r6": "6",
+    "r7": "7",
+    "r8": "8",
+    "r9": "9",
+    "r10": "10",
+    "r11": "11",
+    "r12": "12",
+    "r13": "13",
+    "r14": "14",
+    "r15": "15",
+    "r16": "16",
+    "r17": "17",
+    "r18": "18",
+    "r19": "19",
+    "r20": "20",
+    "r21": "21",
+    "r22": "22",
+    "r23": "23",
+    "r24": "24",
+    "r25": "25",
+    "r26": "26",
+    "r27": "27",
+    "r28": "28",
+    "r29": "29",
+    "r30": "30",
+    "rZ": "31"
+  },
+  "enum:3:CtlReg": {
+    "control": "0",
+    "hwi": "1",
+    "tmi": "2",
+    "swi": "3"
+  },
+  "enum:4:Group": {
+    "move": "0",
+    "process": "1",
+    "memory": "2",
+    "branch": "3",
+    "jump_rel": "4",
+    "jump_reg": "5",
+    "addpc": "6",
+    "ctl": "7",
+    "irq": "8"
+  },
+  "enum:4:ProcessCode": {
+    "and": "0",
+    "or": "1",
+    "xor": "2",
+    "lsl": "3",
+    "lsr": "4",
+    "asr": "5",
+    "add": "6",
+    "sub": "7",
+    "mul": "8",
+    "divu": "9",
+    "divs": "10",
+    "modu": "11",
+    "mods": "12"
+  },
+  "enum:1:ProcessSize": {
+    "m32": "0",
+    "m64": "1"
+  },
+  "enum:2:MemorySize": {
+    "m8": "0",
+    "m16": "1",
+    "m32": "2",
+    "m64": "3"
+  },
+  "enum:1:ShiftType": {
+    "lsl": "0",
+    "lsr": "1"
+  },
+  "struct:3:CmpFlags": {
+    "compare": "bool",
+    "flip": "bool",
+    "signed": "bool"
+  },
+  "enum:2:CtlMode": {
+    "write": "0",
+    "read": "1",
+    "set": "2",
+    "unset": "3"
+  },
+  "enum:2:MoveMode": {
+    "imm": "0",
+    "imm_shift": "1",
+    "reg": "2",
+    "cvt": "3"
+  },
+  "struct:32:InstMoveImm": {
+    "group:Group": "move",
+    "mode:MoveMode": "imm",
+    "dst": "Reg",
+    "imm": "i21"
+  },
+  "struct:32:InstMoveImmShift": {
+    "group:Group": "move",
+    "mode:MoveMode": "imm_shift",
+    "dst": "Reg",
+    "value": "i15",
+    "left_amount": "u6"
+  },
+  "struct:32:InstMoveReg": {
+    "group:Group": "move",
+    "mode:MoveMode": "reg",
+    "dst": "Reg",
+    "value": "Reg",
+    "left_amount": "u6",
+    "signed": "bool",
+    "right_amount": "u6",
+    "reserved:u3": "0"
+  },
+  "struct:32:InstMoveCvt": {
+    "group:Group": "move",
+    "mode:MoveMode": "cvt",
+    "dst": "Reg",
+    "code": "MoveCvtCode",
+    "src": "Reg",
+    "reserved:u11": "0"
+  },
+  "struct:32:InstMove": {
+    "group:Group": "move",
+    "mode": "MoveMode",
+    "dst": "Reg",
+    "pad": "u21"
+  },
+  "struct:32:InstAddPC": {
+    "group:Group": "addpc",
+    "dst": "Reg",
+    "offset": "i23"
+  },
+  "enum:1:ProcessMode": {
+    "imm": "0",
+    "reg": "1"
+  },
+  "struct:32:InstProcessImm": {
+    "group:Group": "process",
+    "code": "ProcessCode",
+    "size": "ProcessSize",
+    "dst": "Reg",
+    "lhs": "Reg",
+    "rhs_mode:ProcessMode": "imm",
+    "imm": "i12"
+  },
+  "struct:32:InstProcessReg": {
+    "group:Group": "process",
+    "code": "ProcessCode",
+    "size": "ProcessSize",
+    "dst": "Reg",
+    "lhs": "Reg",
+    "rhs_mode:ProcessMode": "reg",
+    "value": "Reg",
+    "shift": "ShiftType",
+    "amount": "u6"
+  },
+  "struct:32:InstProcess": {
+    "group:Group": "process",
+    "code": "ProcessCode",
+    "size": "ProcessSize",
+    "dst": "Reg",
+    "lhs": "Reg",
+    "rhs_mode": "ProcessMode",
+    "pad": "u12"
+  },
+  "struct:32:InstMemory": {
+    "group:Group": "memory",
+    "mode": "MemorySize",
+    "signed": "bool",
+    "store": "bool",
+    "value": "Reg",
+    "base": "Reg",
+    "offset": "i14"
+  },
+  "struct:32:InstBranch": {
+    "group:Group": "branch",
+    "lhs": "Reg",
+    "rhs": "Reg",
+    "flags": "CmpFlags",
+    "offset": "i15"
+  },
+  "struct:32:InstJumpRel": {
+    "group:Group": "jump_rel",
+    "link": "Reg",
+    "offset": "i23"
+  },
+  "struct:32:InstJumpReg": {
+    "group:Group": "jump_reg",
+    "link": "Reg",
+    "base": "Reg",
+    "offset": "i18"
+  },
+  "struct:32:InstCtl": {
+    "group:Group": "ctl",
+    "mode": "CtlMode",
+    "target": "CtlReg",
+    "reg": "Reg",
+    "reserved:u18": "0"
+  },
+  "struct:32:InstIrq": {
+    "group:Group": "irq",
+    "mode": "IrqMode",
+    "code:u27": "0"
+  },
+  "struct:32:UnknownInst": {
+    "group": "Group",
+    "reserved": "u28"
+  },
+  "union:Inst": {
+    "unknown": "UnknownInst",
+    "move": "InstMove",
+    "move_imm": "InstMoveImm",
+    "move_imm_shift": "InstMoveImmShift",
+    "move_reg": "InstMoveReg",
+    "move_cvt": "InstMoveCvt",
+    "process": "InstProcess",
+    "process_imm": "InstProcessImm",
+    "process_reg": "InstProcessReg",
+    "addpc": "InstAddPC",
+    "memory": "InstMemory",
+    "branch": "InstBranch",
+    "jump_rel": "InstJumpRel",
+    "jump_reg": "InstJumpReg",
+    "ctl": "InstCtl",
+    "irq": "InstIrq"
+  }
+}
