@@ -1,3 +1,5 @@
+.i64            .loop
+
 _start:
     mov         r0, 0x69
 loop:

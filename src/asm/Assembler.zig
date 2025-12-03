@@ -206,7 +206,15 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 }
 
 fn parseConstant(self: *Self, parser: *Parser, comptime I: type) Error!void {
-    try self.int(I, @truncate(try parser.integer(I)));
+    const token = try parser.token();
+    const value = switch (token.data) {
+        .ident => |ident| @as(i64, @bitCast(@as(u64, try self.parseLabel(parser, ident)))),
+        .integer => |val| val,
+
+        else => return parser.err("Value must be a known comptime-time constant", .{}),
+    };
+
+    try self.int(I, @truncate(value));
 }
 
 fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
@@ -224,13 +232,12 @@ fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
     const dst_reg = try parser.register("dst");
     try parser.operator(.@",");
 
-    var offset: i23 = 0;
     const tok = try parser.token();
+    var offset: i23 = 0;
 
     switch (tok.data) {
         .ident => |name| offset = try self.parseLabelRelative(parser, name, i23),
         .integer => |val| offset = @truncate(val),
-
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
 
@@ -281,8 +288,8 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         else => .m64,
     };
 
-    const lhs_tok = try parser.token();
-    switch (lhs_tok.data) {
+    const tok = try parser.token();
+    switch (tok.data) {
         .integer => |value_imm| {
             const value = try parser.intCast(i12, value_imm);
 
@@ -324,13 +331,7 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
                 .amount = amount,
             } });
         },
-        else => {
-            const RhsImm = @FieldType(InstProcessImm, "imm");
-            return parser.err(
-                "Instruction takes either a shifted register or a {}-bit immediate offset!",
-                .{@bitSizeOf(RhsImm)},
-            );
-        },
+        else => return parser.err("Unexpected {t}", .{tok.data}),
     }
 }
 
@@ -481,7 +482,7 @@ fn parseCtlInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!voi
     } });
 }
 
-fn parseLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
+fn parseLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
     if (!std.mem.startsWith(u8, name, ".")) {
         return parser.err("Unexpected {s}", .{name});
     }
@@ -491,9 +492,13 @@ fn parseLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I
         return parser.err("Label \"{s}\" does not exist", .{name_slice});
     }
 
-    const addr = @as(i64, @bitCast(@as(u64, self.labels.get(name_slice).? -% (self.binary.items.len + @sizeOf(Inst)))));
-    std.debug.print("final offset: {}\n", .{addr});
-    return try parser.intCast(I, addr);
+    return self.labels.get(name_slice).?;
+}
+
+fn parseLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
+    const addr = try parseLabel(self, parser, name);
+    const offset = addr -% (self.binary.items.len + @sizeOf(Inst));
+    return try parser.intCast(I, @as(i64, @bitCast(@as(u64, offset))));
 }
 
 fn write(self: *Self, values: []const u8) Error!void {
