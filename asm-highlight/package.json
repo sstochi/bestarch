@@ -1,0 +1,31 @@
+{
+  "name": "bestarch-assembly",
+  "displayName": "Bestarch Assembly Support",
+  "description": "Bestarch Assembly language support",
+  "version": "0.0.1",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "bestarch",
+        "aliases": [
+          "BestArch"
+        ],
+        "extensions": [
+          ".asm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bestarch",
+        "scopeName": "source.bestarch",
+        "path": "./syntaxes/bestarch.tmLanguage.json"
+      }
+    ]
+  }
+}
