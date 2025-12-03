@@ -1,9 +1,6 @@
-.i16            0x20      
+_irq_handler:
+    irq.ret
+
 
 _start:
-    mov r0, 0x69
-    jmp rZ, .loop
-
-_hwint:
-
-loop:
+    
