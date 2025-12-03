@@ -44,7 +44,7 @@
   "Add PC": {
     "prefix": "add.pc",
     "body": [
-      "add.pc\t${1:src}"
+      "add.pc\t${1:src}, ${2:offset}"
     ],
     "description": "Add to program counter"
   },
