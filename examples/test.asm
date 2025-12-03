@@ -1,15 +1,5 @@
-    add.pc      r0, .hwint
-    ctl.w       hwi, r0
-    jmp rZ,     ._start
-
-hwint:
-    irq.ret
-
-# r0 now holds syscall code
-_swi_handler:
-    irq.ret
-
 _start:
-    add.pc      r0, ._swi_handler
-    ctl.w       swi, r0
-    irq.sw      0x1
+    mov         r0, 0x69
+loop:
+    sub.i64     r0, r0, 1
+    b.ne        rZ, r0, .loop

@@ -139,12 +139,12 @@ fn groupProcess(self: *Self, inst: *const Inst) !void {
     };
 
     switch (inst.process.size) {
-        .m32 => try self.group_process_impl(&inst.process, u32, @truncate(lhs_raw), @truncate(rhs_raw)),
-        .m64 => try self.group_process_impl(&inst.process, u64, lhs_raw, rhs_raw),
+        .m32 => try self.groupProcessImpl(&inst.process, u32, @truncate(lhs_raw), @truncate(rhs_raw)),
+        .m64 => try self.groupProcessImpl(&inst.process, u64, lhs_raw, rhs_raw),
     }
 }
 
-fn group_process_impl(self: *Self, data: *const InstProcess, comptime U: type, lhs: U, rhs: U) !void {
+fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs: U, rhs: U) !void {
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(U) } });
 
     const result: U = switch (data.code) {

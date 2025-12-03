@@ -178,7 +178,7 @@ pub const InstMove = packed struct(u32) {
     mode: MoveMode,
 
     dst: Reg,
-    pad: u21,
+    reserved: u21,
 };
 
 pub const InstAddPC = packed struct(u32) {
@@ -221,7 +221,7 @@ pub const InstProcess = packed struct(u32) {
     dst: Reg,
     lhs: Reg,
     rhs_mode: ProcessMode,
-    pad: u12,
+    reserved: u12,
 };
 
 pub const InstMemory = packed struct(u32) {
