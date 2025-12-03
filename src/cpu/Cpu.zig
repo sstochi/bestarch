@@ -76,7 +76,7 @@ pub inline fn getCtl(self: *const Self, r: CtlReg) u64 {
 
 pub inline fn irq(self: *const Self) !void {
     self._pc = self.pc;
-    self.pc = self.getCtl(.hwi);
+    self.pc = self.getCtl(.xhwi);
 }
 
 fn groupMove(self: *Self, data: *const Inst) !void {
@@ -233,7 +233,7 @@ fn groupIrq(self: *Self, data: *const InstIrq) !void {
     switch (data.mode) {
         .swi => {
             self._pc = self.pc;
-            self.pc = self.getCtl(.swi);
+            self.pc = self.getCtl(.xswi);
             self.set(.r0, u64, data.code);
         },
 

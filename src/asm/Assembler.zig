@@ -185,16 +185,16 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 => try self.parseMemoryInstr(parser, keyword),
 
                 // bltu ra, rb, i13
-                .@"b.eq",
-                .@"b.ne",
-                .@"b.ltu",
-                .@"b.leu",
-                .@"b.gtu",
-                .@"b.geu",
-                .@"b.lts",
-                .@"b.les",
-                .@"b.gts",
-                .@"b.ges",
+                .@"bra.eq",
+                .@"bra.ne",
+                .@"bra.ltu",
+                .@"bra.leu",
+                .@"bra.gtu",
+                .@"bra.geu",
+                .@"bra.lts",
+                .@"bra.les",
+                .@"bra.gts",
+                .@"bra.ges",
                 => try self.parseBranchInstr(parser, keyword),
                 .jmp => try self.parseJumpInstr(parser),
 
@@ -388,17 +388,17 @@ fn parseBranchInstr(
     try parser.operator(.@",");
 
     const flags: CompareFlags = switch (keyword) {
-        .@"b.eq" => CompareFlags{ .compare = false, .flip = false, .signed = false },
-        .@"b.ne" => CompareFlags{ .compare = false, .flip = true, .signed = false },
-        .@"b.ltu", .@"b.gtu" => CompareFlags{ .compare = true, .flip = false, .signed = false },
-        .@"b.geu", .@"b.leu" => CompareFlags{ .compare = true, .flip = true, .signed = false },
-        .@"b.lts", .@"b.gts" => CompareFlags{ .compare = true, .flip = false, .signed = true },
-        .@"b.ges", .@"b.les" => CompareFlags{ .compare = true, .flip = true, .signed = true },
+        .@"bra.eq" => CompareFlags{ .compare = false, .flip = false, .signed = false },
+        .@"bra.ne" => CompareFlags{ .compare = false, .flip = true, .signed = false },
+        .@"bra.ltu", .@"bra.gtu" => CompareFlags{ .compare = true, .flip = false, .signed = false },
+        .@"bra.geu", .@"bra.leu" => CompareFlags{ .compare = true, .flip = true, .signed = false },
+        .@"bra.lts", .@"bra.gts" => CompareFlags{ .compare = true, .flip = false, .signed = true },
+        .@"bra.ges", .@"bra.les" => CompareFlags{ .compare = true, .flip = true, .signed = true },
         else => unreachable,
     };
 
     switch (keyword) {
-        .@"b.gtu", .@"b.leu", .@"b.gts", .@"b.les" => std.mem.swap(Reg, &lhs_reg, &rhs_reg),
+        .@"bra.gtu", .@"bra.leu", .@"bra.gts", .@"bra.les" => std.mem.swap(Reg, &lhs_reg, &rhs_reg),
         else => {},
     }
 

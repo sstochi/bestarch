@@ -34,10 +34,10 @@ pub const Reg = enum(u5) {
 };
 
 pub const CtlReg = enum(u3) {
-    control,
-    hwi, // hw interrupt
-    tmi, // sw interrupt
-    swi, // timer interrupt
+    xctl,
+    xhwi, // hw interrupt
+    xtmi, // sw interrupt
+    xswi, // timer interrupt
 };
 
 pub const Group = enum(u4) {

@@ -42,7 +42,7 @@
     "description": "Move src to dst"
   },
   "Add PC": {
-    "prefix": "addpc",
+    "prefix": "add.pc",
     "body": [
       "add.pc\t${1:src}"
     ],
@@ -231,51 +231,51 @@
     "description": "Modulo signed .i64"
   },
   "Branch equal": {
-    "prefix": "b.eq",
+    "prefix": "bra.eq",
     "body": [
-      "b.eq\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.eq\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if equal"
   },
   "Branch not equal": {
-    "prefix": "b.ne",
+    "prefix": "bra.ne",
     "body": [
-      "b.ne\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.ne\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if not equal"
   },
   "Branch less than unsigned": {
-    "prefix": "b.ltu",
+    "prefix": "bra.ltu",
     "body": [
-      "b.ltu\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.ltu\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if lhs < rhs (unsigned)"
   },
   "Branch less or equal unsigned": {
-    "prefix": "b.leu",
+    "prefix": "bra.leu",
     "body": [
-      "b.leu\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.leu\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if lhs < rhs (signed"
   },
   "Branch less or equal signed": {
-    "prefix": "b.les",
+    "prefix": "bra.les",
     "body": [
-      "b.les\t${1:lhs},\t${2:rhs},\t${3:offset}"
+      "bra.les\t${1:lhs},\t${2:rhs},\t${3:offset}"
     ],
     "description": "Branch if lhs <= rhs (signed)"
   },
   "Branch greater than signed": {
-    "prefix": "b.gts",
+    "prefix": "bra.gts",
     "body": [
-      "b.gts\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.gts\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if lhs > rhs (signed)"
   },
   "Branch greater or equal signed": {
-    "prefix": "b.ges",
+    "prefix": "bra.ges",
     "body": [
-      "b.ges\t${1:lhs}, ${2:rhs}, ${3:offset}"
+      "bra.ges\t${1:lhs}, ${2:rhs}, ${3:offset}"
     ],
     "description": "Branch if lhs >= rhs (signed)"
   },
@@ -364,42 +364,42 @@
     "description": "Store 64-bit value"
   },
   "Control Write": {
-    "prefix": "ctlw",
+    "prefix": "ctl.w",
     "body": [
       "ctl.w\t${1:ctlr}, ${2:value}"
     ],
     "description": "Control write"
   },
   "Control Read": {
-    "prefix": "ctlr",
+    "prefix": "ctl.r",
     "body": [
       "ctl.r\t${1:ctlr}, ${2:value}"
     ],
     "description": "Control read"
   },
   "Control Set": {
-    "prefix": "ctls",
+    "prefix": "ctl.s",
     "body": [
       "ctl.s\t${1:ctlr}, ${2:value}"
     ],
     "description": "Control set"
   },
   "Control Unset": {
-    "prefix": "ctlu",
+    "prefix": "ctl.u",
     "body": [
       "ctl.u\t${1:ctlr}, ${2:value}"
     ],
     "description": "Control unset"
   },
   "IRQ Software": {
-    "prefix": "irqsw",
+    "prefix": "irq.sw",
     "body": [
       "irq.sw\t${1:signal}"
     ],
     "description": "Software interrupt"
   },
   "IRQ Return": {
-    "prefix": "irqret",
+    "prefix": "irq.ret",
     "body": [
       "irq.ret"
     ],
@@ -635,5 +635,33 @@
       "rZ"
     ],
     "description": "Zero register"
+  },
+  "Control Register xctl": {
+    "prefix": "xctl",
+    "body": [
+      "xctl"
+    ],
+    "description": "Control register (general control)"
+  },
+  "Control Register xhwi": {
+    "prefix": "xhwi",
+    "body": [
+      "xhwi"
+    ],
+    "description": "Control register (hardware interrupt)"
+  },
+  "Control Register xtmi": {
+    "prefix": "xtmi",
+    "body": [
+      "xtmi"
+    ],
+    "description": "Control register (software interrupt)"
+  },
+  "Control Register xswi": {
+    "prefix": "xswi",
+    "body": [
+      "xswi"
+    ],
+    "description": "Control register (timer interrupt)"
   }
 }

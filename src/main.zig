@@ -19,6 +19,7 @@ pub fn main() !void {
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
     var cpu = Cpu.create(&memory, start);
+    cpu.irq();
 
     while (true) {
         try cpu.clock();
