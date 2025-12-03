@@ -1,9 +1,9 @@
-.i64            .loop
+.i16            0x20      
 
 _start:
-    mov         r0, 0x69
-    jmp         rZ, .loop
+    mov r0, 0x69
+    jmp rZ, .loop
+
+_hwint:
 
 loop:
-    sub.i64     r0, r0, 1
-    b.ne        rZ, r0, .loop

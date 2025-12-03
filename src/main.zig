@@ -19,7 +19,10 @@ pub fn main() !void {
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
     var cpu = Cpu.create(&memory, start);
-    try cpu.eval(as.binary.items.len);
+
+    while (true) {
+        try cpu.clock();
+    }
 
     std.debug.print("{any}\n", .{cpu.r});
 }

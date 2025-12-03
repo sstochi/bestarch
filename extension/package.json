@@ -26,6 +26,12 @@
         "scopeName": "source.bestarch",
         "path": "./syntaxes/bestarch.tmLanguage.json"
       }
+    ],
+    "snippets": [
+      {
+        "language": "bestarch",
+        "path": "snippets/bestarch.tmLanguage.json"
+      }
     ]
   }
 }

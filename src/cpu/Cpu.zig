@@ -37,22 +37,20 @@ pub fn create(mem: *Memory, pc: u64) Self {
     };
 }
 
-pub fn eval(self: *Self, end: u64) !void {
-    while (self.pc < self.mem.raw.len and self.pc < end) {
-        const instr = try self.mem.load(self.pc, Inst);
-        self.pc += @sizeOf(Inst);
+pub fn clock(self: *Self) !void {
+    const instr = try self.mem.load(self.pc, Inst);
+    self.pc += @sizeOf(Inst);
 
-        switch (instr.unknown.group) {
-            .move => try self.groupMove(&instr),
-            .process => try self.groupProcess(&instr),
-            .addpc => try self.groupAddPC(&instr.addpc),
-            .memory => try self.groupMemory(&instr.memory),
-            .branch => try self.groupBranch(&instr.branch),
-            .jump_rel => try self.groupJumpRel(&instr.jump_rel),
-            .jump_reg => try self.groupJumpReg(&instr.jump_reg),
-            .ctl => try self.groupCtl(&instr.ctl),
-            .irq => try self.groupIrq(&instr.irq),
-        }
+    switch (instr.unknown.group) {
+        .move => try self.groupMove(&instr),
+        .process => try self.groupProcess(&instr),
+        .addpc => try self.groupAddPC(&instr.addpc),
+        .memory => try self.groupMemory(&instr.memory),
+        .branch => try self.groupBranch(&instr.branch),
+        .jump_rel => try self.groupJumpRel(&instr.jump_rel),
+        .jump_reg => try self.groupJumpReg(&instr.jump_reg),
+        .ctl => try self.groupCtl(&instr.ctl),
+        .irq => try self.groupIrq(&instr.irq),
     }
 }
 
