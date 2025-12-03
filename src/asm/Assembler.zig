@@ -91,8 +91,11 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
         }
     }
 
+    // parse instructions
+    try self.binary.ensureTotalCapacity(self.allocator, binary_size);
     lines = std.mem.splitScalar(u8, source, '\n');
     line_count = 0;
+
     while (lines.next()) |line| : (line_count += 1) {
         var parser = Parser{ .buf = line };
         self.parseInst(&parser) catch |err| {
