@@ -1,497 +1,695 @@
 {
   "Constant .i8": {
     "prefix": "c.i8",
-    "body": [".i8\t${1:value}"],
+    "body": [
+      ".i8\t${1:value}"
+    ],
     "description": "Define 8-bit constant"
   },
   "Constant .i16": {
     "prefix": "c.i16",
-    "body": [".i16\t${1:value}"],
+    "body": [
+      ".i16\t${1:value}"
+    ],
     "description": "Define 16-bit constant"
   },
   "Constant .i32": {
     "prefix": "c.i32",
-    "body": [".i32\t${1:value}"],
+    "body": [
+      ".i32\t${1:value}"
+    ],
     "description": "Define 32-bit constant"
   },
   "Constant .i64": {
     "prefix": "c.i64",
-    "body": [".i64\t${1:value}"],
+    "body": [
+      ".i64\t${1:value}"
+    ],
     "description": "Define 64-bit constant"
   },
   "No Operation": {
     "prefix": "nop",
-    "body": ["nop"],
+    "body": [
+      "nop"
+    ],
     "description": "No operation"
   },
   "Move": {
     "prefix": "mov",
-    "body": ["mov\t${1:src}, ${2:dst}"],
+    "body": [
+      "mov\t${1:src}, ${2:dst}"
+    ],
     "description": "Move src to dst"
   },
   "Add PC": {
-    "prefix": "add.pc",
-    "body": ["add.pc\t${1:src}, ${2:offset}"],
-    "description": "Add to program counter"
+    "prefix": "aui.pc",
+    "body": [
+      "aui.pc\t${1:dst}, ${2:offset}"
+    ],
+    "description": "Add program counter + offset to dst"
   },
   "AND .i32": {
     "prefix": "and.i32",
-    "body": ["and.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "and.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise AND .i32"
   },
   "OR .i32": {
     "prefix": "or.i32",
-    "body": ["or.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "or.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise OR .i32"
   },
   "XOR .i32": {
     "prefix": "xor.i32",
-    "body": ["xor.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "xor.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise XOR .i32"
   },
   "SHL .i32": {
     "prefix": "shl.i32",
-    "body": ["shl.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shl.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift left .i32"
   },
   "SHR Unsigned .i32": {
     "prefix": "shr.u32",
-    "body": ["shr.u32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shr.u32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift right unsigned .i32"
   },
   "SHR Signed .i32": {
     "prefix": "shr.s32",
-    "body": ["shr.s32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shr.s32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift right signed .i32"
   },
   "ADD .i32": {
     "prefix": "add.i32",
-    "body": ["add.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "add.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Add .i32"
   },
   "SUB .i32": {
     "prefix": "sub.i32",
-    "body": ["sub.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "sub.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Subtract .i32"
   },
   "MUL .i32": {
     "prefix": "mul.i32",
-    "body": ["mul.i32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mul.i32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Multiply .i32"
   },
   "DIV Unsigned .i32": {
     "prefix": "div.u32",
-    "body": ["div.u32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "div.u32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Divide unsigned .i32"
   },
   "DIV Signed .i32": {
     "prefix": "div.s32",
-    "body": ["div.s32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "div.s32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Divide signed .i32"
   },
   "MOD Unsigned .i32": {
     "prefix": "mod.u32",
-    "body": ["mod.u32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mod.u32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Modulo unsigned .i32"
   },
   "MOD Signed .i32": {
     "prefix": "mod.s32",
-    "body": ["mod.s32\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mod.s32\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Modulo signed .i32"
   },
   "AND .i64": {
     "prefix": "and.i64",
-    "body": ["and.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "and.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise AND .i64"
   },
   "OR .i64": {
     "prefix": "or.i64",
-    "body": ["or.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "or.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise OR .i64"
   },
   "XOR .i64": {
     "prefix": "xor.i64",
-    "body": ["xor.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "xor.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Bitwise XOR .i64"
   },
   "SHL .i64": {
     "prefix": "shl.i64",
-    "body": ["shl.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shl.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift left .i64"
   },
   "SHR Unsigned .i64": {
     "prefix": "shr.u64",
-    "body": ["shr.u64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shr.u64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift right unsigned .i64"
   },
   "SHR Signed .i64": {
     "prefix": "shr.s64",
-    "body": ["shr.s64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "shr.s64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Shift right signed .i64"
   },
   "ADD .i64": {
     "prefix": "add.i64",
-    "body": ["add.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "add.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Add .i64"
   },
   "SUB .i64": {
     "prefix": "sub.i64",
-    "body": ["sub.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "sub.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Subtract .i64"
   },
   "MUL .i64": {
     "prefix": "mul.i64",
-    "body": ["mul.i64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mul.i64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Multiply .i64"
   },
   "DIV Unsigned .i64": {
     "prefix": "div.u64",
-    "body": ["div.u64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "div.u64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Divide unsigned .i64"
   },
   "DIV Signed .i64": {
     "prefix": "div.s64",
-    "body": ["div.s64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "div.s64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Divide signed .i64"
   },
   "MOD Unsigned .i64": {
     "prefix": "mod.u64",
-    "body": ["mod.u64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mod.u64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Modulo unsigned .i64"
   },
   "MOD Signed .i64": {
     "prefix": "mod.s64",
-    "body": ["mod.s64\t${1:dst}, ${2:src}, ${3:value}"],
+    "body": [
+      "mod.s64\t${1:dst}, ${2:src}, ${3:value}"
+    ],
     "description": "Modulo signed .i64"
   },
   "Branch equal": {
     "prefix": "bra.eq",
-    "body": ["bra.eq\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.eq\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if equal"
   },
   "Branch not equal": {
     "prefix": "bra.ne",
-    "body": ["bra.ne\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.ne\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if not equal"
   },
   "Branch less than unsigned": {
     "prefix": "bra.ltu",
-    "body": ["bra.ltu\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.ltu\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if lhs < rhs (unsigned)"
   },
   "Branch less or equal unsigned": {
     "prefix": "bra.leu",
-    "body": ["bra.leu\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.leu\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if lhs < rhs (signed"
   },
   "Branch less or equal signed": {
     "prefix": "bra.les",
-    "body": ["bra.les\t${1:lhs},\t${2:rhs},\t${3:offset}"],
+    "body": [
+      "bra.les\t${1:lhs},\t${2:rhs},\t${3:offset}"
+    ],
     "description": "Branch if lhs <= rhs (signed)"
   },
   "Branch greater than signed": {
     "prefix": "bra.gts",
-    "body": ["bra.gts\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.gts\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if lhs > rhs (signed)"
   },
   "Branch greater or equal signed": {
     "prefix": "bra.ges",
-    "body": ["bra.ges\t${1:lhs}, ${2:rhs}, ${3:offset}"],
+    "body": [
+      "bra.ges\t${1:lhs}, ${2:rhs}, ${3:offset}"
+    ],
     "description": "Branch if lhs >= rhs (signed)"
   },
   "Jump": {
     "prefix": "jmp",
-    "body": ["jmp\t${1:link}, ${2:offset}"],
+    "body": [
+      "jmp\t${1:link}, ${2:offset}"
+    ],
     "description": "Jump instruction"
   },
   "Load unsigned 8-bit": {
     "prefix": "ldr.u8",
-    "body": ["ldr.u8\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.u8\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load unsigned 8-bit value"
   },
   "Load signed 8-bit": {
     "prefix": "ldr.s8",
-    "body": ["ldr.s8\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.s8\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load signed 8-bit value"
   },
   "Load unsigned 16-bit": {
     "prefix": "ldr.u16",
-    "body": ["ldr.u16\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.u16\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load unsigned 16-bit value"
   },
   "Load signed 16-bit": {
     "prefix": "ldr.s16",
-    "body": ["ldr.s16\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.s16\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load signed 16-bit value"
   },
   "Load unsigned 32-bit": {
     "prefix": "ldr.u32",
-    "body": ["ldr.u32\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.u32\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load unsigned 32-bit value"
   },
   "Load signed 32-bit": {
     "prefix": "ldr.s32",
-    "body": ["ldr.s32\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.s32\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load signed 32-bit value"
   },
   "Load 64-bit": {
     "prefix": "ldr.i64",
-    "body": ["ldr.i64\t${1:dst}, ${2:base}, ${3:offset}"],
+    "body": [
+      "ldr.i64\t${1:dst}, ${2:base}, ${3:offset}"
+    ],
     "description": "Load 64-bit value"
   },
   "Store 8-bit": {
     "prefix": "str.i8",
-    "body": ["str.i8\t${1:src}, ${2:base}, ${3:offset}"],
+    "body": [
+      "str.i8\t${1:src}, ${2:base}, ${3:offset}"
+    ],
     "description": "Store 8-bit value"
   },
   "Store 16-bit": {
     "prefix": "str.i16",
-    "body": ["str.i16\t${1:src}, ${2:base}, ${3:offset}"],
+    "body": [
+      "str.i16\t${1:src}, ${2:base}, ${3:offset}"
+    ],
     "description": "Store 16-bit value"
   },
   "Store 32-bit": {
     "prefix": "str.i32",
-    "body": ["str.i32\t${1:src}, ${2:base}, ${3:offset}"],
+    "body": [
+      "str.i32\t${1:src}, ${2:base}, ${3:offset}"
+    ],
     "description": "Store 32-bit value"
   },
   "Store 64-bit": {
     "prefix": "str.i64",
-    "body": ["str.i64\t${1:src}, ${2:base}, ${3:offset}"],
+    "body": [
+      "str.i64\t${1:src}, ${2:base}, ${3:offset}"
+    ],
     "description": "Store 64-bit value"
   },
   "Control Write": {
     "prefix": "ctl.w",
-    "body": ["ctl.w\t${1:ctlr}, ${2:value}"],
+    "body": [
+      "ctl.w\t${1:ctlr}, ${2:value}"
+    ],
     "description": "Control write"
   },
   "Control Read": {
     "prefix": "ctl.r",
-    "body": ["ctl.r\t${1:ctlr}, ${2:value}"],
+    "body": [
+      "ctl.r\t${1:ctlr}, ${2:value}"
+    ],
     "description": "Control read"
   },
   "Control Set": {
     "prefix": "ctl.s",
-    "body": ["ctl.s\t${1:ctlr}, ${2:value}"],
+    "body": [
+      "ctl.s\t${1:ctlr}, ${2:value}"
+    ],
     "description": "Control set"
   },
   "Control Unset": {
     "prefix": "ctl.u",
-    "body": ["ctl.u\t${1:ctlr}, ${2:value}"],
+    "body": [
+      "ctl.u\t${1:ctlr}, ${2:value}"
+    ],
     "description": "Control unset"
   },
   "IRQ Software": {
     "prefix": "irq.sw",
-    "body": ["irq.sw\t${1:signal}"],
+    "body": [
+      "irq.sw\t${1:signal}"
+    ],
     "description": "Software interrupt"
   },
   "IRQ Return": {
     "prefix": "irq.ret",
-    "body": ["irq.ret"],
+    "body": [
+      "irq.ret"
+    ],
     "description": "Return from interrupt"
   },
   "Push 32-bit": {
     "prefix": "psh.i32",
-    "body": ["psh.i32 ${1:reg}"],
+    "body": [
+      "psh.i32 ${1:reg}"
+    ],
     "description": "Push 32-bit register(s) onto the stack"
   },
   "Push 64-bit": {
     "prefix": "psh.i64",
-    "body": ["psh.i64 ${1:reg}"],
+    "body": [
+      "psh.i64 ${1:reg}"
+    ],
     "description": "Push 64-bit register(s) onto the stack"
   },
   "Pop 32-bit": {
     "prefix": "pop.i32",
-    "body": ["pop.i32 ${1:reg}"],
+    "body": [
+      "pop.i32 ${1:reg}"
+    ],
     "description": "Pop 32-bit register(s) from the stack"
   },
   "Pop 64-bit": {
     "prefix": "pop.i64",
-    "body": ["pop.i64 ${1:reg}"],
+    "body": [
+      "pop.i64 ${1:reg}"
+    ],
     "description": "Pop 64-bit register(s) from the stack"
   },
   "Register r0": {
     "prefix": "r0",
-    "body": ["r0"],
+    "body": [
+      "r0"
+    ],
     "description": "Register 0"
   },
   "Register r1": {
     "prefix": "r1",
-    "body": ["r1"],
+    "body": [
+      "r1"
+    ],
     "description": "Register 1"
   },
   "Register r2": {
     "prefix": "r2",
-    "body": ["r2"],
+    "body": [
+      "r2"
+    ],
     "description": "Register 2"
   },
   "Register r3": {
     "prefix": "r3",
-    "body": ["r3"],
+    "body": [
+      "r3"
+    ],
     "description": "Register 3"
   },
   "Register r4": {
     "prefix": "r4",
-    "body": ["r4"],
+    "body": [
+      "r4"
+    ],
     "description": "Register 4"
   },
   "Register r5": {
     "prefix": "r5",
-    "body": ["r5"],
+    "body": [
+      "r5"
+    ],
     "description": "Register 5"
   },
   "Register r6": {
     "prefix": "r6",
-    "body": ["r6"],
+    "body": [
+      "r6"
+    ],
     "description": "Register 6"
   },
   "Register r7": {
     "prefix": "r7",
-    "body": ["r7"],
+    "body": [
+      "r7"
+    ],
     "description": "Register 7"
   },
   "Register r8": {
     "prefix": "r8",
-    "body": ["r8"],
+    "body": [
+      "r8"
+    ],
     "description": "Register 8"
   },
   "Register r9": {
     "prefix": "r9",
-    "body": ["r9"],
+    "body": [
+      "r9"
+    ],
     "description": "Register 9"
   },
   "Register r10": {
     "prefix": "r10",
-    "body": ["r10"],
+    "body": [
+      "r10"
+    ],
     "description": "Register 10"
   },
   "Register r11": {
     "prefix": "r11",
-    "body": ["r11"],
+    "body": [
+      "r11"
+    ],
     "description": "Register 11"
   },
   "Register r12": {
     "prefix": "r12",
-    "body": ["r12"],
+    "body": [
+      "r12"
+    ],
     "description": "Register 12"
   },
   "Register r13": {
     "prefix": "r13",
-    "body": ["r13"],
+    "body": [
+      "r13"
+    ],
     "description": "Register 13"
   },
   "Register r14": {
     "prefix": "r14",
-    "body": ["r14"],
+    "body": [
+      "r14"
+    ],
     "description": "Register 14"
   },
   "Register r15": {
     "prefix": "r15",
-    "body": ["r15"],
+    "body": [
+      "r15"
+    ],
     "description": "Register 15"
   },
   "Register r16": {
     "prefix": "r16",
-    "body": ["r16"],
+    "body": [
+      "r16"
+    ],
     "description": "Register 16"
   },
   "Register r17": {
     "prefix": "r17",
-    "body": ["r17"],
+    "body": [
+      "r17"
+    ],
     "description": "Register 17"
   },
   "Register r18": {
     "prefix": "r18",
-    "body": ["r18"],
+    "body": [
+      "r18"
+    ],
     "description": "Register 18"
   },
   "Register r19": {
     "prefix": "r19",
-    "body": ["r19"],
+    "body": [
+      "r19"
+    ],
     "description": "Register 19"
   },
   "Register r20": {
     "prefix": "r20",
-    "body": ["r20"],
+    "body": [
+      "r20"
+    ],
     "description": "Register 20"
   },
   "Register r21": {
     "prefix": "r21",
-    "body": ["r21"],
+    "body": [
+      "r21"
+    ],
     "description": "Register 21"
   },
   "Register r22": {
     "prefix": "r22",
-    "body": ["r22"],
+    "body": [
+      "r22"
+    ],
     "description": "Register 22"
   },
   "Register r23": {
     "prefix": "r23",
-    "body": ["r23"],
+    "body": [
+      "r23"
+    ],
     "description": "Register 23"
   },
   "Register r24": {
     "prefix": "r24",
-    "body": ["r24"],
+    "body": [
+      "r24"
+    ],
     "description": "Register 24"
   },
   "Register r25": {
     "prefix": "r25",
-    "body": ["r25"],
+    "body": [
+      "r25"
+    ],
     "description": "Register 25"
   },
   "Register r26": {
     "prefix": "r26",
-    "body": ["r26"],
+    "body": [
+      "r26"
+    ],
     "description": "Register 26"
   },
   "Register r27": {
     "prefix": "r27",
-    "body": ["r27"],
+    "body": [
+      "r27"
+    ],
     "description": "Register 27"
   },
   "Register r28": {
     "prefix": "r28",
-    "body": ["r28"],
+    "body": [
+      "r28"
+    ],
     "description": "Register 28"
   },
   "Register r29": {
     "prefix": "r29",
-    "body": ["r29"],
+    "body": [
+      "r29"
+    ],
     "description": "Register 29"
   },
   "Register r30": {
     "prefix": "r30",
-    "body": ["r30"],
+    "body": [
+      "r30"
+    ],
     "description": "Register 30"
   },
   "Register r31": {
     "prefix": "r31",
-    "body": ["r31"],
+    "body": [
+      "r31"
+    ],
     "description": "Register 31"
   },
   "Register rZ": {
     "prefix": "rz",
-    "body": ["rZ"],
+    "body": [
+      "rZ"
+    ],
     "description": "Zero register"
   },
   "Control Register xctl": {
     "prefix": "xctl",
-    "body": ["xctl"],
+    "body": [
+      "xctl"
+    ],
     "description": "Control register (general control)"
   },
   "Control Register xhwi": {
     "prefix": "xhwi",
-    "body": ["xhwi"],
+    "body": [
+      "xhwi"
+    ],
     "description": "Control register (hardware interrupt)"
   },
   "Control Register xtmi": {
     "prefix": "xtmi",
-    "body": ["xtmi"],
+    "body": [
+      "xtmi"
+    ],
     "description": "Control register (software interrupt)"
   },
   "Control Register xswi": {
     "prefix": "xswi",
-    "body": ["xswi"],
+    "body": [
+      "xswi"
+    ],
     "description": "Control register (timer interrupt)"
   }
 }

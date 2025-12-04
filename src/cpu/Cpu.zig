@@ -11,14 +11,14 @@ const InstMoveImmShift = isa.InstMoveImmShift;
 const InstMoveReg = isa.InstMoveReg;
 const InstMoveCvt = isa.InstMoveCvt;
 const InstProcess = isa.InstProcess;
-const InstAddPC = isa.InstAddPC;
+const InstAuiPC = isa.InstAuiPC;
 const InstMemory = isa.InstMemory;
+const InstMemoryMulti = isa.InstMemoryMulti;
 const InstBranch = isa.InstBranch;
 const InstJumpRel = isa.InstJumpRel;
 const InstJumpReg = isa.InstJumpReg;
 const InstCtl = isa.InstCtl;
 const InstIrq = isa.InstIrq;
-const InstStack = isa.InstStack;
 
 const Self = @This();
 const register_count = 1 << @bitSizeOf(Reg);
@@ -28,13 +28,11 @@ mem: *Memory,
 r: [register_count]u64 = .{0} ** register_count,
 crs: [control_register_count]u64 = .{0} ** control_register_count,
 pc: u64,
-sp: u64,
 
-pub fn create(mem: *Memory, pc: u64, sp: u64) Self {
+pub fn create(mem: *Memory, pc: u64) Self {
     return Self{
         .mem = mem,
         .pc = pc,
-        .sp = sp,
     };
 }
 
@@ -45,14 +43,14 @@ pub fn clock(self: *Self) !void {
     switch (instr.unknown.group) {
         .move => try self.groupMove(&instr),
         .process => try self.groupProcess(&instr),
-        .addpc => try self.groupAddPC(&instr.addpc),
+        .auipc => try self.groupAuiPC(&instr.addpc),
         .memory => try self.groupMemory(&instr.memory),
         .branch => try self.groupBranch(&instr.branch),
         .jump_rel => try self.groupJumpRel(&instr.jump_rel),
         .jump_reg => try self.groupJumpReg(&instr.jump_reg),
         .ctl => try self.groupCtl(&instr.ctl),
         .irq => try self.groupIrq(&instr.irq),
-        .stack => try self.groupStack(&instr.stack),
+        .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
     }
 }
 
@@ -62,13 +60,15 @@ pub fn irq(self: *Self) !void {
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
-    self.sp -= @sizeOf(I);
-    try self.mem.store(self.sp, I, value);
+    const sp = self.get(.rSP, u64) - @sizeOf(I);
+    try self.mem.store(sp, I, value);
+    self.set(.rSP, u64, sp);
 }
 
 pub fn pop(self: *Self, comptime I: type) !I {
-    const value = try self.mem.load(self.sp, I);
-    self.sp += @sizeOf(I);
+    const sp = self.get(.rSP, u64);
+    const value = try self.mem.load(sp, I);
+    self.set(.rSP, u64, sp + @sizeOf(I));
     return value;
 }
 
@@ -94,7 +94,6 @@ pub fn getCtl(self: *const Self, r: CtlReg) u64 {
 
 fn pushState(self: *Self) !void {
     try self.push(u64, self.pc);
-    try self.push(u64, self.sp);
     for (0..register_count) |i| {
         try self.push(u64, self.r[i]);
     }
@@ -104,7 +103,6 @@ fn popState(self: *Self) !void {
     for (0..register_count) |i| {
         self.r[register_count - i - 1] = try self.pop(u64);
     }
-    self.sp = try self.pop(u64);
     self.pc = try self.pop(u64);
 }
 
@@ -197,7 +195,7 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
     self.set(data.dst, u64, result);
 }
 
-fn groupAddPC(self: *Self, data: *const InstAddPC) !void {
+fn groupAuiPC(self: *Self, data: *const InstAuiPC) !void {
     const offset = self.pc +% @as(u64, @bitCast(@as(i64, data.offset)));
     self.set(data.dst, u64, offset);
 }
@@ -229,6 +227,112 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
             });
         }
     }
+}
+
+fn groupMemoryMulti(self: *Self, data: *const InstMemoryMulti) !void {
+    const bit_set: std.bit_set.IntegerBitSet(18) = .{ .mask = data.bitmask };
+    var size: u64 = @popCount(data.bitmask);
+    size *= switch (data.size) {
+        .m8 => @sizeOf(u8),
+        .m16 => @sizeOf(u16),
+        .m32 => @sizeOf(u32),
+        .m64 => @sizeOf(u64),
+    };
+
+    if (data.lifo) {
+        var iter = bit_set.iterator(.{ .direction = .reverse });
+        try self.groupMemoryMultiImpl(data, &iter, size);
+    } else {
+        var iter = bit_set.iterator(.{});
+        try self.groupMemoryMultiImpl(data, &iter, size);
+    }
+}
+
+fn groupMemoryMultiImpl(self: *Self, data: *const InstMemoryMulti, iter: anytype, size: u64) !void {
+    var addr = self.get(data.base, u64);
+    var base: u64 = undefined;
+
+    if (data.store) {
+        // if lifo, it will substract size (DB)
+        addr -%= @intFromBool(data.lifo) * size;
+        // if not lifo, it will add size (IA)
+        base = addr +% (~@intFromBool(data.lifo)) * size;
+
+        while (iter.next()) |i| {
+            const value = self.get(@enumFromInt(i), u64);
+            switch (data.size) {
+                .m8 => {
+                    try self.mem.store(addr, u8, @truncate(value));
+                    addr +%= @sizeOf(u8);
+                },
+                .m16 => {
+                    try self.mem.store(addr, u16, @truncate(value));
+                    addr +%= @sizeOf(u16);
+                },
+                .m32 => {
+                    try self.mem.store(addr, u32, @truncate(value));
+                    addr +%= @sizeOf(u32);
+                },
+                .m64 => {
+                    try self.mem.store(addr, u64, value);
+                    addr +%= @sizeOf(u64);
+                },
+            }
+        }
+    } else {
+        while (iter.next()) |i| {
+            if (data.signed) {
+                var value: i64 = 0;
+                switch (data.size) {
+                    .m8 => {
+                        value = try self.mem.load(addr, i8);
+                        addr +%= @sizeOf(i8);
+                    },
+                    .m16 => {
+                        value = try self.mem.load(addr, i16);
+                        addr +%= @sizeOf(i16);
+                    },
+                    .m32 => {
+                        value = try self.mem.load(addr, i32);
+                        addr +%= @sizeOf(i32);
+                    },
+                    .m64 => {
+                        value = try self.mem.load(addr, i64);
+                        addr +%= @sizeOf(i64);
+                    },
+                }
+
+                self.set(@enumFromInt(i), i64, value);
+            } else {
+                var value: u64 = 0;
+                switch (data.size) {
+                    .m8 => {
+                        value = try self.mem.load(addr, u8);
+                        addr +%= @sizeOf(u8);
+                    },
+                    .m16 => {
+                        value = try self.mem.load(addr, u16);
+                        addr +%= @sizeOf(u16);
+                    },
+                    .m32 => {
+                        value = try self.mem.load(addr, u32);
+                        addr +%= @sizeOf(u32);
+                    },
+                    .m64 => {
+                        value = try self.mem.load(addr, u64);
+                        addr +%= @sizeOf(u64);
+                    },
+                }
+
+                self.set(@enumFromInt(i), u64, value);
+            }
+        }
+
+        // load is always IA
+        base = addr;
+    }
+
+    self.set(data.base, u64, base);
 }
 
 fn groupBranch(self: *Self, data: *const InstBranch) !void {
@@ -275,29 +379,5 @@ fn groupCtl(self: *Self, data: *const InstCtl) !void {
         .read => self.set(data.reg, u64, self.getCtl(data.target)),
         .set => self.setCtl(data.target, self.getCtl(data.target) | self.get(data.reg, u64)),
         .unset => self.setCtl(data.target, self.getCtl(data.target) & ~self.get(data.reg, u64)),
-    }
-}
-
-fn groupStack(self: *Self, data: *const InstStack) !void {
-    const bit_set: std.bit_set.IntegerBitSet(26) = .{
-        .mask = data.bitmask,
-    };
-
-    if (data.push) {
-        var iter = bit_set.iterator(.{});
-        while (iter.next()) |i| {
-            switch (data.size) {
-                .m64 => try self.push(u64, self.r[i]),
-                else => try self.push(u32, @truncate(self.r[i])),
-            }
-        }
-    } else {
-        var iter = bit_set.iterator(.{ .direction = .reverse });
-        while (iter.next()) |i| {
-            switch (data.size) {
-                .m64 => self.r[i] = try self.pop(u64),
-                else => self.r[i] = try self.pop(u32),
-            }
-        }
     }
 }

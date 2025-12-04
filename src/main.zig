@@ -20,7 +20,8 @@ pub fn main() !void {
     var memory = try Memory.create(allocator, 2048);
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
-    var cpu = Cpu.create(&memory, start, memory.raw.len);
+    var cpu = Cpu.create(&memory, start);
+    cpu.set(.rSP, u64, memory.raw.len);
 
     var puis = std.time.milliTimestamp();
     while (true) {

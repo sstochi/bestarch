@@ -164,7 +164,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 
                 // mov rd, i21
                 .mov => try self.parseMovInstr(parser),
-                .@"add.pc" => try self.parseAddPCInstr(parser),
+                .@"aui.pc" => try self.parseAddPCInstr(parser),
 
                 // and.i32 rd, ra, i12
                 // sub.i64, ra, rb
@@ -520,7 +520,7 @@ fn parseCtlInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!voi
 
 fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
     var reg = try parser.register("reg");
-    var bitmask: u26 = @as(u26, 1) << @intFromEnum(reg);
+    var bitmask: u18 = @as(u18, 1) << @intFromEnum(reg);
 
     for (0..@bitSizeOf(@TypeOf(bitmask)) - 1) |_| {
         try parser.expect(.@",") orelse break;
@@ -533,19 +533,22 @@ fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
         bitmask |= (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg));
     }
 
-    const size: MemorySize1 = switch (keyword) {
+    const size: MemorySize2 = switch (keyword) {
         .@"psh.i64", .@"pop.i64" => .m64,
         else => .m32,
     };
 
-    const push = switch (keyword) {
+    const store = switch (keyword) {
         .@"psh.i64", .@"psh.i32" => true,
         else => false,
     };
 
-    try self.inst(Inst{ .stack = .{
+    try self.inst(Inst{ .memory_multi = .{
         .size = size,
-        .push = push,
+        .base = .rSP,
+        .signed = false,
+        .store = store,
+        .lifo = true,
         .bitmask = bitmask,
     } });
 }

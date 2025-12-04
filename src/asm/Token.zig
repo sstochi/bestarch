@@ -13,7 +13,7 @@ pub const Keyword = enum(u8) {
 
     nop,
     mov,
-    @"add.pc",
+    @"aui.pc",
 
     @"and.i32",
     @"or.i32",

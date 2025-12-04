@@ -29,8 +29,9 @@ pub const Reg = enum(u5) {
     r27,
     r28,
     r29,
-    r30,
-    rZ,
+
+    rSP, // stack pointer
+    rZ, // zero register
 };
 
 pub const CtlReg = enum(u3) {
@@ -44,13 +45,13 @@ pub const Group = enum(u4) {
     move,
     process,
     memory,
+    memory_multi,
     branch,
     jump_rel,
     jump_reg,
-    addpc,
+    auipc,
     ctl,
     irq,
-    stack,
 };
 
 pub const ProcessCode = enum(u4) {
@@ -182,8 +183,8 @@ pub const InstMove = packed struct(u32) {
     reserved: u21,
 };
 
-pub const InstAddPC = packed struct(u32) {
-    group: Group = .addpc,
+pub const InstAuiPC = packed struct(u32) {
+    group: Group = .auipc,
     dst: Reg,
     offset: i23,
 };
@@ -236,6 +237,17 @@ pub const InstMemory = packed struct(u32) {
     offset: i14,
 };
 
+pub const InstMemoryMulti = packed struct(u32) {
+    group: Group = .memory_multi,
+    size: MemorySize2,
+    lifo: bool,
+    signed: bool,
+    store: bool,
+
+    base: Reg,
+    bitmask: u18,
+};
+
 pub const InstBranch = packed struct(u32) {
     group: Group = .branch,
     lhs: Reg,
@@ -273,13 +285,6 @@ pub const InstIrq = packed struct(u32) {
     code: u27 = 0,
 };
 
-pub const InstStack = packed struct(u32) {
-    group: Group = .stack,
-    size: MemorySize1,
-    push: bool,
-    bitmask: u26,
-};
-
 pub const UnknownInst = packed struct(u32) {
     group: Group,
     reserved: u28,
@@ -295,12 +300,12 @@ pub const Inst = packed union {
     process: InstProcess,
     process_imm: InstProcessImm,
     process_reg: InstProcessReg,
-    addpc: InstAddPC,
+    addpc: InstAuiPC,
     memory: InstMemory,
+    memory_multi: InstMemoryMulti,
     branch: InstBranch,
     jump_rel: InstJumpRel,
     jump_reg: InstJumpReg,
     ctl: InstCtl,
     irq: InstIrq,
-    stack: InstStack,
 };
