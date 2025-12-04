@@ -7,8 +7,8 @@ const Parser = @import("Parser.zig");
 const isa = @import("../cpu/isa.zig");
 const Inst = isa.Inst;
 const ProcessCode = isa.ProcessCode;
-const ProcessSize = isa.ProcessSize;
-const MemorySize = isa.MemorySize;
+const MemorySize1 = isa.MemorySize1;
+const MemorySize2 = isa.MemorySize2;
 const ShiftType = isa.ShiftType;
 const CompareFlags = isa.CmpFlags;
 const Reg = isa.Reg;
@@ -34,6 +34,11 @@ pub fn create(allocator: std.mem.Allocator) Error!Self {
         .labels = .empty,
         .binary = try .initCapacity(allocator, 1024),
     };
+}
+
+pub fn destroy(self: *Self) void {
+    self.labels.deinit(self.allocator);
+    self.binary.deinit(self.allocator);
 }
 
 pub fn assemble(self: *Self, source: []const u8) Error!void {
@@ -127,6 +132,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i16" => try parseConstant(self, parser, i16),
                 .@".i32" => try parseConstant(self, parser, i32),
                 .@".i64" => try parseConstant(self, parser, i64),
+                .@".bytes" => try parseBytes(self, parser),
 
                 .nop => try self.inst(Inst{ .move_imm = .{
                     .dst = .rZ,
@@ -200,6 +206,8 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 
                 .@"ctl.w", .@"ctl.r", .@"ctl.s", .@"ctl.u" => try self.parseCtlInstr(parser, keyword),
                 .@"irq.sw", .@"irq.ret" => try self.parseIrqInstr(parser),
+
+                .@"push.i64", .@"push.i32", .@"pop.i64", .@"pop.i32" => try self.parseStackInstr(parser, keyword),
             }
         },
 
@@ -218,6 +226,20 @@ fn parseConstant(self: *Self, parser: *Parser, comptime I: type) Error!void {
     };
 
     try self.int(I, @truncate(value));
+}
+
+fn parseBytes(self: *Self, parser: *Parser) Error!void {
+    const name = try parser.expect(.ident) orelse {
+        return parser.err("Expected filename", .{});
+    };
+
+    const cwd = std.fs.cwd();
+    const binary = cwd.readFileAlloc(self.allocator, name, std.math.maxInt(usize)) catch |err| {
+        return parser.err("Failed to read file contents: {}", .{err});
+    };
+    defer self.allocator.free(binary);
+
+    try self.write(binary);
 }
 
 fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
@@ -273,7 +295,7 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         else => unreachable,
     };
 
-    const mode: ProcessSize = switch (keyword) {
+    const mode: MemorySize1 = switch (keyword) {
         .@"and.i32",
         .@"or.i32",
         .@"xor.i32",
@@ -348,7 +370,7 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
         offset = try parser.integer(i14);
     }
 
-    const mode: MemorySize = switch (Keyword) {
+    const mode: MemorySize2 = switch (Keyword) {
         .@"ldr.u8", .@"ldr.s8", .@"str.i8" => .m8,
         .@"ldr.u16", .@"ldr.s16", .@"str.i16" => .m16,
         .@"ldr.u32", .@"ldr.s32", .@"str.i32" => .m32,
@@ -482,6 +504,38 @@ fn parseCtlInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!voi
         .mode = mode,
         .target = ctl_reg,
         .reg = val_reg,
+    } });
+}
+
+fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
+    var reg = try parser.register("reg");
+    var bitmask: u26 = @as(u26, 1) << @intFromEnum(reg);
+
+    while (true) {
+        try parser.expect(.@",") orelse break;
+        reg = try parser.register("reg");
+
+        if ((bitmask & (@as(u26, 1) << @intFromEnum(reg))) != 0) {
+            return parser.err("Register {} is already present in the list", .{reg});
+        }
+
+        bitmask |= (@as(u26, 1) << @intFromEnum(reg));
+    }
+
+    const size: MemorySize1 = switch (keyword) {
+        .@"push.i64", .@"pop.i64" => .m64,
+        else => .m32,
+    };
+
+    const push = switch (keyword) {
+        .@"push.i64", .@"push.i32" => true,
+        else => false,
+    };
+
+    try self.inst(Inst{ .stack = .{
+        .size = size,
+        .push = push,
+        .bitmask = bitmask,
     } });
 }
 

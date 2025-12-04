@@ -18,6 +18,7 @@ const InstJumpRel = isa.InstJumpRel;
 const InstJumpReg = isa.InstJumpReg;
 const InstCtl = isa.InstCtl;
 const InstIrq = isa.InstIrq;
+const InstStack = isa.InstStack;
 
 const Self = @This();
 const register_count = 1 << @bitSizeOf(Reg);
@@ -25,15 +26,15 @@ const control_register_count = 1 << @bitSizeOf(CtlReg);
 
 mem: *Memory,
 r: [register_count]u64 = .{0} ** register_count,
-pc: u64,
 crs: [control_register_count]u64 = .{0} ** control_register_count,
-_pc: u64,
+pc: u64,
+sp: u64,
 
-pub fn create(mem: *Memory, pc: u64) Self {
+pub fn create(mem: *Memory, pc: u64, sp: u64) Self {
     return Self{
         .mem = mem,
         .pc = pc,
-        ._pc = pc,
+        .sp = sp,
     };
 }
 
@@ -51,32 +52,62 @@ pub fn clock(self: *Self) !void {
         .jump_reg => try self.groupJumpReg(&instr.jump_reg),
         .ctl => try self.groupCtl(&instr.ctl),
         .irq => try self.groupIrq(&instr.irq),
+        .stack => try self.groupStack(&instr.stack),
     }
 }
 
-pub inline fn set(self: *Self, r: Reg, comptime T: type, value: T) void {
+pub fn irq(self: *Self) !void {
+    try self.pushState();
+    self.pc = self.getCtl(.xhwi);
+}
+
+pub fn push(self: *Self, comptime I: type, value: I) !void {
+    std.debug.print("pushed {}\n", .{value});
+    self.sp -= @sizeOf(I);
+    try self.mem.store(self.sp, I, value);
+}
+
+pub fn pop(self: *Self, comptime I: type) !I {
+    const value = try self.mem.load(self.sp, I);
+    self.sp += @sizeOf(I);
+    std.debug.print("popped {}\n", .{value});
+    return value;
+}
+
+pub fn set(self: *Self, r: Reg, comptime T: type, value: T) void {
     if (r == .rZ) return;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     self.r[@intFromEnum(r)] = @bitCast(@as(i64, @as(I, @bitCast(value))));
 }
 
-pub inline fn get(self: *const Self, r: Reg, comptime T: type) T {
+pub fn get(self: *const Self, r: Reg, comptime T: type) T {
     if (r == .rZ) return 0;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     return @bitCast(@as(I, @truncate(@as(i64, @bitCast(self.r[@intFromEnum(r)])))));
 }
 
-pub inline fn setCtl(self: *Self, r: CtlReg, value: u64) void {
+pub fn setCtl(self: *Self, r: CtlReg, value: u64) void {
     self.crs[@intFromEnum(r)] = value;
 }
 
-pub inline fn getCtl(self: *const Self, r: CtlReg) u64 {
+pub fn getCtl(self: *const Self, r: CtlReg) u64 {
     return self.crs[@intFromEnum(r)];
 }
 
-pub inline fn irq(self: *const Self) !void {
-    self._pc = self.pc;
-    self.pc = self.getCtl(.xhwi);
+fn pushState(self: *Self) !void {
+    try self.push(u64, self.pc);
+    try self.push(u64, self.sp);
+    for (0..register_count) |i| {
+        try self.push(u64, self.r[i]);
+    }
+}
+
+fn popState(self: *Self) !void {
+    for (0..register_count) |i| {
+        self.r[register_count - i - 1] = try self.pop(u64);
+    }
+    self.sp = try self.pop(u64);
+    self.pc = try self.pop(u64);
 }
 
 fn groupMove(self: *Self, data: *const Inst) !void {
@@ -232,12 +263,11 @@ fn groupJumpReg(self: *Self, data: *const InstJumpReg) !void {
 fn groupIrq(self: *Self, data: *const InstIrq) !void {
     switch (data.mode) {
         .swi => {
-            self._pc = self.pc;
-            self.pc = self.getCtl(.xswi);
+            try self.pushState();
             self.set(.r0, u64, data.code);
         },
 
-        .ret => self.pc = self._pc,
+        .ret => try self.popState(),
     }
 }
 
@@ -247,5 +277,29 @@ fn groupCtl(self: *Self, data: *const InstCtl) !void {
         .read => self.set(data.reg, u64, self.getCtl(data.target)),
         .set => self.setCtl(data.target, self.getCtl(data.target) | self.get(data.reg, u64)),
         .unset => self.setCtl(data.target, self.getCtl(data.target) & ~self.get(data.reg, u64)),
+    }
+}
+
+fn groupStack(self: *Self, data: *const InstStack) !void {
+    const bit_set: std.bit_set.IntegerBitSet(26) = .{
+        .mask = data.bitmask,
+    };
+
+    if (data.push) {
+        var iter = bit_set.iterator(.{});
+        while (iter.next()) |i| {
+            switch (data.size) {
+                .m64 => try self.push(u64, self.r[i]),
+                else => try self.push(u32, @truncate(self.r[i])),
+            }
+        }
+    } else {
+        var iter = bit_set.iterator(.{ .direction = .reverse });
+        while (iter.next()) |i| {
+            switch (data.size) {
+                .m64 => self.r[i] = try self.pop(u64),
+                else => self.r[i] = try self.pop(u32),
+            }
+        }
     }
 }

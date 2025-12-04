@@ -50,6 +50,7 @@ pub const Group = enum(u4) {
     addpc,
     ctl,
     irq,
+    stack,
 };
 
 pub const ProcessCode = enum(u4) {
@@ -71,12 +72,12 @@ pub const ProcessCode = enum(u4) {
     _,
 };
 
-pub const ProcessSize = enum(u1) {
+pub const MemorySize1 = enum(u1) {
     m32,
     m64,
 };
 
-pub const MemorySize = enum(u2) {
+pub const MemorySize2 = enum(u2) {
     m8,
     m16,
     m32,
@@ -192,7 +193,7 @@ pub const ProcessMode = enum(u1) { imm, reg };
 pub const InstProcessImm = packed struct(u32) {
     group: Group = .process,
     code: ProcessCode,
-    size: ProcessSize,
+    size: MemorySize1,
 
     dst: Reg,
     lhs: Reg,
@@ -203,7 +204,7 @@ pub const InstProcessImm = packed struct(u32) {
 pub const InstProcessReg = packed struct(u32) {
     group: Group = .process,
     code: ProcessCode,
-    size: ProcessSize,
+    size: MemorySize1,
 
     dst: Reg,
     lhs: Reg,
@@ -216,7 +217,7 @@ pub const InstProcessReg = packed struct(u32) {
 pub const InstProcess = packed struct(u32) {
     group: Group = .process,
     code: ProcessCode,
-    size: ProcessSize,
+    size: MemorySize1,
 
     dst: Reg,
     lhs: Reg,
@@ -226,7 +227,7 @@ pub const InstProcess = packed struct(u32) {
 
 pub const InstMemory = packed struct(u32) {
     group: Group = .memory,
-    mode: MemorySize,
+    mode: MemorySize2,
     signed: bool,
     store: bool,
 
@@ -272,6 +273,13 @@ pub const InstIrq = packed struct(u32) {
     code: u27 = 0,
 };
 
+pub const InstStack = packed struct(u32) {
+    group: Group = .stack,
+    size: MemorySize1,
+    push: bool,
+    bitmask: u26,
+};
+
 pub const UnknownInst = packed struct(u32) {
     group: Group,
     reserved: u28,
@@ -294,4 +302,5 @@ pub const Inst = packed union {
     jump_reg: InstJumpReg,
     ctl: InstCtl,
     irq: InstIrq,
+    stack: InstStack,
 };

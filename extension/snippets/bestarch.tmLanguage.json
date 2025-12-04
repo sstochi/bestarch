@@ -338,28 +338,28 @@
   "Store 8-bit": {
     "prefix": "str.i8",
     "body": [
-      "str.i8\t${1:dst}, ${2:base}, ${3:offset}"
+      "str.i8\t${1:src}, ${2:base}, ${3:offset}"
     ],
     "description": "Store 8-bit value"
   },
   "Store 16-bit": {
     "prefix": "str.i16",
     "body": [
-      "str.i16\t${1:dst}, ${2:base}, ${3:offset}"
+      "str.i16\t${1:src}, ${2:base}, ${3:offset}"
     ],
     "description": "Store 16-bit value"
   },
   "Store 32-bit": {
     "prefix": "str.i32",
     "body": [
-      "str.i32\t${1:dst}, ${2:base}, ${3:offset}"
+      "str.i32\t${1:src}, ${2:base}, ${3:offset}"
     ],
     "description": "Store 32-bit value"
   },
   "Store 64-bit": {
     "prefix": "str.i64",
     "body": [
-      "str.i64\t${1:dst}, ${2:base}, ${3:offset}"
+      "str.i64\t${1:src}, ${2:base}, ${3:offset}"
     ],
     "description": "Store 64-bit value"
   },
@@ -404,6 +404,34 @@
       "irq.ret"
     ],
     "description": "Return from interrupt"
+  },
+  "Push 32-bit": {
+    "prefix": "push.i32",
+    "body": [
+      "push.i32 ${1:reg}"
+    ],
+    "description": "Push 32-bit register(s) onto the stack"
+  },
+  "Push 64-bit": {
+    "prefix": "push.i64",
+    "body": [
+      "push.i64 ${1:reg}"
+    ],
+    "description": "Push 64-bit register(s) onto the stack"
+  },
+  "Pop 32-bit": {
+    "prefix": "pop.i32",
+    "body": [
+      "pop.i32 ${1:reg}"
+    ],
+    "description": "Pop 32-bit register(s) from the stack"
+  },
+  "Pop 64-bit": {
+    "prefix": "pop.i64",
+    "body": [
+      "pop.i64 ${1:reg}"
+    ],
+    "description": "Pop 64-bit register(s) from the stack"
   },
   "Register r0": {
     "prefix": "r0",
