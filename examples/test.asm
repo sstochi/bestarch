@@ -4,8 +4,8 @@ v_blank:
 _start:
     add.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
-    #add.pc	    r0, ._xswi_handler
-    #ctl.w	    xswi, r0
+    add.pc	    r0, ._xswi_handler
+    ctl.w	    xswi, r0
 
 _loop:
     # game logic here
@@ -23,5 +23,5 @@ _xhwi_handler:
     str.i8	    r1, r0
     irq.ret
 
-#_xswi_handler:
-#    irq.ret
+_xswi_handler:
+    irq.ret
