@@ -62,15 +62,15 @@ pub fn irq(self: *Self) !void {
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
-    std.debug.print("pushed {}\n", .{value});
     self.sp -= @sizeOf(I);
     try self.mem.store(self.sp, I, value);
+    std.debug.print("push {}\n", .{value});
 }
 
 pub fn pop(self: *Self, comptime I: type) !I {
     const value = try self.mem.load(self.sp, I);
     self.sp += @sizeOf(I);
-    std.debug.print("popped {}\n", .{value});
+    std.debug.print("pop {}\n", .{value});
     return value;
 }
 
@@ -201,7 +201,7 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
 
 fn groupAddPC(self: *Self, data: *const InstAddPC) !void {
     const offset = self.pc +% @as(u64, @bitCast(@as(i64, data.offset)));
-
+    std.debug.print("pc: {}, off: {}\n", .{ self.pc, data.offset });
     self.set(data.dst, u64, offset);
 }
 
@@ -264,6 +264,7 @@ fn groupIrq(self: *Self, data: *const InstIrq) !void {
     switch (data.mode) {
         .swi => {
             try self.pushState();
+            self.pc = self.getCtl(.xswi);
             self.set(.r0, u64, data.code);
         },
 

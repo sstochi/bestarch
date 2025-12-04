@@ -50,50 +50,21 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
     // collect lables
     var binary_size: usize = 0;
+    var last_label: ?*usize = null;
+
     while (lines.next()) |line| : (line_count += 1) {
         var parser = Parser{ .buf = line };
-
-        loop: while (true) {
-            const token = try parser.token();
-            switch (token.data) {
-                .ident => |label| {
-                    if (!std.mem.endsWith(u8, label, ":")) {
-                        continue :loop;
-                    }
-
-                    if (label.len <= 1) {
-                        std.debug.print("error: Label name is too short.\n", .{});
-                        std.debug.print("{} | {s}\n", .{ line_count + 1, line });
-                        return error.ParseError;
-                    }
-
-                    if (self.labels.contains(label)) {
-                        std.debug.print("error: Label \"{s}\" already exists.\n", .{label});
-                        std.debug.print("{} | {s}\n", .{ line_count + 1, line });
-                        return error.ParseError;
-                    }
-
-                    const name = label[0 .. label.len - 1];
-                    try self.labels.put(self.allocator, name, binary_size);
-                },
-
-                .keyword => |keyword| {
-                    binary_size += switch (keyword) {
-                        .@".i8" => @sizeOf(i8),
-                        .@".i16" => @sizeOf(i16),
-                        .@".i32" => @sizeOf(i32),
-                        .@".i64" => @sizeOf(i64),
-                        else => @sizeOf(Inst),
-                    };
-                },
-
-                .eof => {
-                    break :loop;
-                },
-
-                else => {},
+        binary_size = self.parseLabels(&parser, &last_label, binary_size) catch |err| {
+            if (parser.err_msg) |msg| {
+                std.debug.print("error: {s}\n", .{msg});
+                std.debug.print("{} | {s}\n", .{ line_count + 1, line });
             }
-        }
+            return err;
+        };
+    }
+
+    if (last_label) |_| {
+        return error.ParseError;
     }
 
     // parse instructions
@@ -113,17 +84,80 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
         const last = try parser.token();
         if (last.data != .eof) {
-            std.debug.print("Unexpected tokens after an operation or what\n", .{});
+            std.debug.print("error: Tokens remained\n", .{});
+            std.debug.print("{} | {s}\n", .{ line_count + 1, line });
             return error.ParseError;
         }
     }
 }
 
+fn parseLabels(self: *Self, parser: *Parser, last_label: *?*usize, binary_size: usize) Error!usize {
+    var size = binary_size;
+
+    while (true) {
+        const token = try parser.token();
+        switch (token.data) {
+            .ident => |name| {
+                if (!std.mem.endsWith(u8, name, ":")) {
+                    continue;
+                }
+
+                if (last_label.*) |_| {
+                    return parser.err("Previous label's body is empty", .{});
+                }
+
+                if (name.len <= 1) {
+                    return parser.err("Label name is too short", .{});
+                }
+
+                if (self.labels.contains(name)) {
+                    return parser.err("Label \"{s}\" already exists", .{name});
+                }
+
+                const key = name[0 .. name.len - 1];
+                try self.labels.put(self.allocator, key, 0);
+                last_label.* = self.labels.getPtr(key);
+            },
+
+            .keyword => |keyword| {
+                if (size % @sizeOf(Inst) != 0) {
+                    size += switch (keyword) {
+                        .@".i8", .@".i16", .@".i32", .@".i64" => 0,
+                        else => @sizeOf(Inst) - (size % @sizeOf(Inst)),
+                    };
+                }
+
+                if (last_label.*) |label| {
+                    label.* = size;
+                    last_label.* = null;
+                }
+
+                size += switch (keyword) {
+                    .@".i8" => @sizeOf(i8),
+                    .@".i16" => @sizeOf(i16),
+                    .@".i32" => @sizeOf(i32),
+                    .@".i64" => @sizeOf(i64),
+                    else => @sizeOf(Inst),
+                };
+            },
+
+            .eof => break,
+            else => {},
+        }
+    }
+
+    return size;
+}
+
 fn parseInst(self: *Self, parser: *Parser) Error!void {
     const first = try parser.token();
     switch (first.data) {
-        .ident => |_| {
-            // std.debug.print("{s}", .{ident});
+        .ident => |ident| {
+            if (std.mem.endsWith(u8, ident, ":")) {
+                return;
+            }
+
+            return parser.err("Unexpected identifier {s}", .{ident});
         },
         .keyword => |keyword| {
             switch (keyword) {
@@ -202,16 +236,23 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"bra.gts",
                 .@"bra.ges",
                 => try self.parseBranchInstr(parser, keyword),
+
+                // jmp offset
+                // jmp rl, offset
                 .jmp => try self.parseJumpInstr(parser),
 
+                // ctl.w xhwi, 0
                 .@"ctl.w", .@"ctl.r", .@"ctl.s", .@"ctl.u" => try self.parseCtlInstr(parser, keyword),
+
+                // irq.sw 0x0
                 .@"irq.sw", .@"irq.ret" => try self.parseIrqInstr(parser),
 
+                // push.i64 r0, r2, r4, ...
                 .@"push.i64", .@"push.i32", .@"pop.i64", .@"pop.i32" => try self.parseStackInstr(parser, keyword),
             }
         },
 
-        .eof => return,
+        .eof => {},
         else => return error.ParseError,
     }
 }
@@ -219,7 +260,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 fn parseConstant(self: *Self, parser: *Parser, comptime I: type) Error!void {
     const token = try parser.token();
     const value = switch (token.data) {
-        .ident => |ident| @as(i64, @bitCast(@as(u64, try self.parseLabel(parser, ident)))),
+        .ident => |ident| @as(i64, @bitCast(@as(u64, try self.findLabel(parser, ident)))),
         .integer => |val| val,
 
         else => return parser.err("Value must be a known comptime-time constant", .{}),
@@ -261,10 +302,12 @@ fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
     var offset: i23 = 0;
 
     switch (tok.data) {
-        .ident => |name| offset = try self.parseLabelRelative(parser, name, i23),
+        .ident => |name| offset = try self.findLabelRelative(parser, name, i23),
         .integer => |val| offset = @truncate(val),
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
+
+    std.debug.print("addpc offt: {} \n", .{offset});
 
     try self.inst(Inst{ .addpc = .{
         .dst = dst_reg,
@@ -428,7 +471,7 @@ fn parseBranchInstr(
     var offset: i15 = 0;
 
     switch (tok.data) {
-        .ident => |name| offset = try self.parseLabelRelative(parser, name, i15) >> 2,
+        .ident => |name| offset = try self.findLabelRelative(parser, name, i15) >> 2,
         .integer => |val| offset = try parser.intCast(i15, val),
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
@@ -450,7 +493,7 @@ fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
         .ident => |name| {
             try self.inst(Inst{ .jump_rel = .{
                 .link = link_reg,
-                .offset = try self.parseLabelRelative(parser, name, i23) >> 2,
+                .offset = try self.findLabelRelative(parser, name, i23) >> 2,
             } });
         },
 
@@ -539,7 +582,7 @@ fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
     } });
 }
 
-fn parseLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
+fn findLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
     if (!std.mem.startsWith(u8, name, ".")) {
         return parser.err("Unexpected {s}", .{name});
     }
@@ -552,9 +595,14 @@ fn parseLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
     return self.labels.get(name_slice).?;
 }
 
-fn parseLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
-    const addr = try parseLabel(self, parser, name);
-    const offset = addr -% (self.binary.items.len + @sizeOf(Inst));
+fn findLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
+    const addr = try findLabel(self, parser, name);
+
+    const pc = self.binary.items.len +
+        (@sizeOf(Inst) - (self.binary.items.len % @sizeOf(Inst)));
+
+    const offset = addr -% pc;
+    std.debug.print("rel {s}: {}\n", .{ name, @as(i64, @bitCast(offset)) });
     return try parser.intCast(I, @as(i64, @bitCast(@as(u64, offset))));
 }
 
@@ -563,8 +611,9 @@ fn write(self: *Self, values: []const u8) Error!void {
 }
 
 fn inst(self: *Self, instr: Inst) Error!void {
-    const offset = self.binary.items.len % 4;
-    if (offset != 0) try self.binary.appendNTimes(self.allocator, 0, 4 - offset);
+    const offset = self.binary.items.len % @sizeOf(Inst);
+    if (offset != 0)
+        try self.binary.appendNTimes(self.allocator, 0, @sizeOf(Inst) - offset);
     try self.int(u32, @bitCast(instr));
 }
 
