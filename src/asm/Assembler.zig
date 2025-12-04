@@ -25,7 +25,7 @@ pub const Error = error{
 };
 
 allocator: std.mem.Allocator,
-labels: std.StringHashMapUnmanaged(usize) = .empty,
+labels: std.StringHashMapUnmanaged(?usize) = .empty,
 binary: std.ArrayList(u8) = .empty,
 
 pub fn create(allocator: std.mem.Allocator) Error!Self {
@@ -50,21 +50,15 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
     // collect lables
     var binary_size: usize = 0;
-    var last_label: ?*usize = null;
-
     while (lines.next()) |line| : (line_count += 1) {
         var parser = Parser{ .buf = line };
-        binary_size = self.parseLabels(&parser, &last_label, binary_size) catch |err| {
+        binary_size = self.parseLabel(&parser, binary_size) catch |err| {
             if (parser.err_msg) |msg| {
                 std.debug.print("error: {s}\n", .{msg});
                 std.debug.print("{} | {s}\n", .{ line_count + 1, line });
             }
             return err;
         };
-    }
-
-    if (last_label) |_| {
-        return error.ParseError;
     }
 
     // parse instructions
@@ -84,14 +78,12 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
         const last = try parser.token();
         if (last.data != .eof) {
-            std.debug.print("error: Tokens remained\n", .{});
-            std.debug.print("{} | {s}\n", .{ line_count + 1, line });
             return error.ParseError;
         }
     }
 }
 
-fn parseLabels(self: *Self, parser: *Parser, last_label: *?*usize, binary_size: usize) Error!usize {
+fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
     var size = binary_size;
 
     while (true) {
@@ -100,10 +92,6 @@ fn parseLabels(self: *Self, parser: *Parser, last_label: *?*usize, binary_size: 
             .ident => |name| {
                 if (!std.mem.endsWith(u8, name, ":")) {
                     continue;
-                }
-
-                if (last_label.*) |_| {
-                    return parser.err("Previous label's body is empty", .{});
                 }
 
                 if (name.len <= 1) {
@@ -115,23 +103,30 @@ fn parseLabels(self: *Self, parser: *Parser, last_label: *?*usize, binary_size: 
                 }
 
                 const key = name[0 .. name.len - 1];
-                try self.labels.put(self.allocator, key, 0);
-                last_label.* = self.labels.getPtr(key);
+                try self.labels.put(self.allocator, key, null);
             },
 
             .keyword => |keyword| {
-                if (size % @sizeOf(Inst) != 0) {
-                    size += switch (keyword) {
-                        .@".i8", .@".i16", .@".i32", .@".i64" => 0,
-                        else => @sizeOf(Inst) - (size % @sizeOf(Inst)),
-                    };
+                size += switch (keyword) {
+                    .@".i8", .@".i16", .@".i32", .@".i64" => 0,
+
+                    else => if ((size % @sizeOf(Inst)) != 0)
+                        @sizeOf(Inst) - (size % @sizeOf(Inst))
+                    else
+                        0,
+                };
+
+                // store label(s) offsets
+                var iter = self.labels.valueIterator();
+                while (iter.next()) |value| {
+                    if (value.* != null) {
+                        continue;
+                    }
+
+                    value.* = size;
                 }
 
-                if (last_label.*) |label| {
-                    label.* = size;
-                    last_label.* = null;
-                }
-
+                // increment by size
                 size += switch (keyword) {
                     .@".i8" => @sizeOf(i8),
                     .@".i16" => @sizeOf(i16),
@@ -168,6 +163,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i64" => try parseConstant(self, parser, i64),
                 .@".bytes" => try parseBytes(self, parser),
 
+                // nop
                 .nop => try self.inst(Inst{ .move_imm = .{
                     .dst = .rZ,
                     .mode = .imm,
@@ -306,8 +302,6 @@ fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
         .integer => |val| offset = @truncate(val),
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
-
-    std.debug.print("addpc offt: {} \n", .{offset});
 
     try self.inst(Inst{ .addpc = .{
         .dst = dst_reg,
@@ -587,23 +581,28 @@ fn findLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
         return parser.err("Unexpected {s}", .{name});
     }
 
-    const name_slice = name[1..];
-    if (!self.labels.contains(name_slice)) {
-        return parser.err("Label \"{s}\" does not exist", .{name_slice});
+    const key = name[1..];
+    if (!self.labels.contains(key)) {
+        return parser.err("Label \"{s}\" does not exist", .{key});
     }
 
-    return self.labels.get(name_slice).?;
+    return self.labels.get(key).? orelse {
+        return parser.err("Label \"{s}\" exists, but has no valid address", .{key});
+    };
 }
 
 fn findLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
     const addr = try findLabel(self, parser, name);
+    var pc = self.binary.items.len + @sizeOf(Inst);
 
-    const pc = self.binary.items.len +
-        (@sizeOf(Inst) - (self.binary.items.len % @sizeOf(Inst)));
+    // word-align
+    const offset = self.binary.items.len % @sizeOf(Inst);
+    if (offset != 0) {
+        pc += @sizeOf(Inst) - offset;
+    }
 
-    const offset = addr -% pc;
-    std.debug.print("rel {s}: {}\n", .{ name, @as(i64, @bitCast(offset)) });
-    return try parser.intCast(I, @as(i64, @bitCast(@as(u64, offset))));
+    const value = addr -% pc;
+    return try parser.intCast(I, @as(i64, @bitCast(@as(u64, value))));
 }
 
 fn write(self: *Self, values: []const u8) Error!void {
@@ -612,8 +611,10 @@ fn write(self: *Self, values: []const u8) Error!void {
 
 fn inst(self: *Self, instr: Inst) Error!void {
     const offset = self.binary.items.len % @sizeOf(Inst);
-    if (offset != 0)
+    if (offset != 0) {
         try self.binary.appendNTimes(self.allocator, 0, @sizeOf(Inst) - offset);
+    }
+
     try self.int(u32, @bitCast(instr));
 }
 
