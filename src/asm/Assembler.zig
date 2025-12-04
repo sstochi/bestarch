@@ -107,13 +107,9 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
             },
 
             .keyword => |keyword| {
-                size += switch (keyword) {
+                size = switch (keyword) {
                     .@".i8", .@".i16", .@".i32", .@".i64" => 0,
-
-                    else => if ((size % @sizeOf(Inst)) != 0)
-                        @sizeOf(Inst) - (size % @sizeOf(Inst))
-                    else
-                        0,
+                    else => (size + 3) & ~@as(usize, 0x3),
                 };
 
                 // store label(s) offsets
@@ -574,16 +570,8 @@ fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize
 
 fn findLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
     const addr = try findLabelAbsolute(self, parser, name);
-    var pc = self.binary.items.len + @sizeOf(Inst);
-
-    // word-align
-    const offset = self.binary.items.len % @sizeOf(Inst);
-    if (offset != 0) {
-        pc += @sizeOf(Inst) - offset;
-    }
-
-    const value = addr -% pc;
-    return try parser.intCast(I, @as(i64, @bitCast(@as(u64, value))));
+    const pc = (self.binary.items.len + @sizeOf(Inst) + 3) & ~@as(usize, 0x3);
+    return try parser.intCast(I, @as(i64, @bitCast(@as(u64, addr -% pc))));
 }
 
 fn write(self: *Self, values: []const u8) Error!void {
@@ -595,7 +583,6 @@ fn inst(self: *Self, instr: Inst) Error!void {
     if (offset != 0) {
         try self.binary.appendNTimes(self.allocator, 0, @sizeOf(Inst) - offset);
     }
-
     try self.int(u32, @bitCast(instr));
 }
 
