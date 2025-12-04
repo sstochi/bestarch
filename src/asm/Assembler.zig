@@ -161,7 +161,6 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i16" => try parseConstant(self, parser, i16),
                 .@".i32" => try parseConstant(self, parser, i32),
                 .@".i64" => try parseConstant(self, parser, i64),
-                .@".bytes" => try parseBytes(self, parser),
 
                 // nop
                 .nop => try self.inst(Inst{ .move_imm = .{
@@ -256,27 +255,13 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 fn parseConstant(self: *Self, parser: *Parser, comptime I: type) Error!void {
     const token = try parser.token();
     const value = switch (token.data) {
-        .ident => |ident| @as(i64, @bitCast(@as(u64, try self.findLabel(parser, ident)))),
+        .ident => |ident| @as(i64, @bitCast(@as(u64, try self.findLabelAbsolute(parser, ident)))),
         .integer => |val| val,
 
         else => return parser.err("Value must be a known comptime-time constant", .{}),
     };
 
     try self.int(I, @truncate(value));
-}
-
-fn parseBytes(self: *Self, parser: *Parser) Error!void {
-    const name = try parser.expect(.ident) orelse {
-        return parser.err("Expected filename", .{});
-    };
-
-    const cwd = std.fs.cwd();
-    const binary = cwd.readFileAlloc(self.allocator, name, std.math.maxInt(usize)) catch |err| {
-        return parser.err("Failed to read file contents: {}", .{err});
-    };
-    defer self.allocator.free(binary);
-
-    try self.write(binary);
 }
 
 fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
@@ -576,7 +561,7 @@ fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
     } });
 }
 
-fn findLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
+fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize {
     if (!std.mem.startsWith(u8, name, ".")) {
         return parser.err("Unexpected {s}", .{name});
     }
@@ -592,7 +577,7 @@ fn findLabel(self: *Self, parser: *Parser, name: []const u8) Error!usize {
 }
 
 fn findLabelRelative(self: *Self, parser: *Parser, name: []const u8, comptime I: type) Error!I {
-    const addr = try findLabel(self, parser, name);
+    const addr = try findLabelAbsolute(self, parser, name);
     var pc = self.binary.items.len + @sizeOf(Inst);
 
     // word-align
