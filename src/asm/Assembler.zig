@@ -85,10 +85,11 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
 fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
     var size = binary_size;
+    var token = try parser.token();
 
-    while (true) {
-        const token = try parser.token();
+    while (token.data != .eof) : (token = try parser.token()) {
         switch (token.data) {
+            .eof => break,
             .ident => |name| {
                 if (!std.mem.endsWith(u8, name, ":")) {
                     continue;
@@ -115,11 +116,9 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                 // store label(s) offsets
                 var iter = self.labels.valueIterator();
                 while (iter.next()) |value| {
-                    if (value.* != null) {
-                        continue;
+                    if (value.* == null) {
+                        value.* = size;
                     }
-
-                    value.* = size;
                 }
 
                 // increment by size
@@ -131,8 +130,6 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     else => @sizeOf(Inst),
                 };
             },
-
-            .eof => break,
             else => {},
         }
     }
@@ -564,7 +561,7 @@ fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize
     }
 
     return self.labels.get(key).? orelse {
-        return parser.err("Label \"{s}\" exists, but has no valid address", .{key});
+        return parser.err("Label \"{s}\" exists, but has no defined address", .{key});
     };
 }
 
