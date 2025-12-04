@@ -7,8 +7,8 @@ _start:
     add.pc	r0, .v_blank
 
 _wait_for_vblank:
-    ldr.u8	r1, r0
-    bra.eq	rZ, r1, ._wait_for_vblank
+    ldr.u8	    r1, r0
+    bra.eq	    rZ, r1, ._wait_for_vblank
 
 _xhwi_handler:
     # mov     r1, 1

@@ -10,7 +10,6 @@ pub const Keyword = enum(u8) {
     @".i16",
     @".i32",
     @".i64",
-    @".bytes",
 
     nop,
     mov,
@@ -77,8 +76,8 @@ pub const Keyword = enum(u8) {
     @"irq.sw",
     @"irq.ret",
 
-    @"push.i64",
-    @"push.i32",
+    @"psh.i64",
+    @"psh.i32",
     @"pop.i64",
     @"pop.i32",
 };

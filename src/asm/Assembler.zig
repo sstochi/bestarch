@@ -243,7 +243,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"irq.sw", .@"irq.ret" => try self.parseIrqInstr(parser),
 
                 // push.i64 r0, r2, r4, ...
-                .@"push.i64", .@"push.i32", .@"pop.i64", .@"pop.i32" => try self.parseStackInstr(parser, keyword),
+                .@"psh.i64", .@"psh.i32", .@"pop.i64", .@"pop.i32" => try self.parseStackInstr(parser, keyword),
             }
         },
 
@@ -421,11 +421,7 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
     } });
 }
 
-fn parseBranchInstr(
-    self: *Self,
-    parser: *Parser,
-    keyword: Token.Keyword,
-) Error!void {
+fn parseBranchInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
     var lhs_reg = try parser.register("lhs");
     try parser.operator(.@",");
     var rhs_reg = try parser.register("rhs");
@@ -533,24 +529,24 @@ fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
     var reg = try parser.register("reg");
     var bitmask: u26 = @as(u26, 1) << @intFromEnum(reg);
 
-    while (true) {
+    for (0..@bitSizeOf(@TypeOf(bitmask)) - 1) |_| {
         try parser.expect(.@",") orelse break;
         reg = try parser.register("reg");
 
-        if ((bitmask & (@as(u26, 1) << @intFromEnum(reg))) != 0) {
-            return parser.err("Register {} is already present in the list", .{reg});
+        if ((bitmask & (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg))) != 0) {
+            return parser.err("Register {t} is already present in the list", .{reg});
         }
 
-        bitmask |= (@as(u26, 1) << @intFromEnum(reg));
+        bitmask |= (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg));
     }
 
     const size: MemorySize1 = switch (keyword) {
-        .@"push.i64", .@"pop.i64" => .m64,
+        .@"psh.i64", .@"pop.i64" => .m64,
         else => .m32,
     };
 
     const push = switch (keyword) {
-        .@"push.i64", .@"push.i32" => true,
+        .@"psh.i64", .@"psh.i32" => true,
         else => false,
     };
 
