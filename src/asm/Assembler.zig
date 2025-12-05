@@ -205,12 +205,32 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"ldr.u32",
                 .@"ldr.s32",
                 .@"ldr.i64",
-
                 .@"str.i8",
                 .@"str.i16",
                 .@"str.i32",
                 .@"str.i64",
                 => try self.parseMemoryInstr(parser, keyword),
+
+                // ldm r0, r1, r2, r3, r4
+                .@"ldm.s8",
+                .@"ldm.u8",
+                .@"ldm.s16",
+                .@"ldm.u16",
+                .@"ldm.s32",
+                .@"ldm.u32",
+                .@"ldm.i64",
+                .@"stm.i8",
+                .@"stm.i16",
+                .@"stm.i32",
+                .@"stm.i64",
+                => {
+                    const base = try parser.register("base");
+                    try parser.operator(.@",");
+                    try self.parseMemoryMultiInstr(parser, base, keyword);
+                },
+
+                // psh r0, r2, r4, ...
+                .psh, .pop => try self.parseMemoryMultiInstr(parser, .rSP, keyword),
 
                 // bltu ra, rb, i13
                 .@"bra.eq",
@@ -234,9 +254,6 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
 
                 // irq.sw 0x0
                 .@"irq.sw", .@"irq.ret" => try self.parseIrqInstr(parser),
-
-                // push.i64 r0, r2, r4, ...
-                .@"psh.i64", .@"psh.i32", .@"pop.i64", .@"pop.i32" => try self.parseStackInstr(parser, keyword),
             }
         },
 
@@ -414,6 +431,48 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
     } });
 }
 
+fn parseMemoryMultiInstr(self: *Self, parser: *Parser, base: Reg, keyword: Token.Keyword) Error!void {
+    var reg = try parser.register("reg");
+    var bitmask: u18 = @as(u18, 1) << @intFromEnum(reg);
+
+    for (0..@bitSizeOf(@TypeOf(bitmask)) - 1) |_| {
+        try parser.expect(.@",") orelse break;
+        reg = try parser.register("reg");
+
+        if ((bitmask & (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg))) != 0) {
+            return parser.err("Register {t} is already present in the list", .{reg});
+        }
+
+        bitmask |= (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg));
+    }
+
+    const size: MemorySize2 = switch (keyword) {
+        .@"ldm.s8", .@"ldm.u8", .@"stm.i8" => .m8,
+        .@"ldm.s16", .@"ldm.u16", .@"stm.i16" => .m16,
+        .@"ldm.s32", .@"ldm.u32", .@"stm.i32" => .m32,
+        else => .m64,
+    };
+
+    const store = switch (keyword) {
+        .@"stm.i8",
+        .@"stm.i16",
+        .@"stm.i32",
+        .@"stm.i64",
+        .psh,
+        => true,
+        else => false,
+    };
+
+    try self.inst(Inst{ .memory_multi = .{
+        .size = size,
+        .base = base,
+        .signed = false,
+        .store = store,
+        .lifo = true,
+        .bitmask = bitmask,
+    } });
+}
+
 fn parseBranchInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
     var lhs_reg = try parser.register("lhs");
     try parser.operator(.@",");
@@ -515,41 +574,6 @@ fn parseCtlInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!voi
         .mode = mode,
         .target = ctl_reg,
         .reg = val_reg,
-    } });
-}
-
-fn parseStackInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
-    var reg = try parser.register("reg");
-    var bitmask: u18 = @as(u18, 1) << @intFromEnum(reg);
-
-    for (0..@bitSizeOf(@TypeOf(bitmask)) - 1) |_| {
-        try parser.expect(.@",") orelse break;
-        reg = try parser.register("reg");
-
-        if ((bitmask & (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg))) != 0) {
-            return parser.err("Register {t} is already present in the list", .{reg});
-        }
-
-        bitmask |= (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg));
-    }
-
-    const size: MemorySize2 = switch (keyword) {
-        .@"psh.i64", .@"pop.i64" => .m64,
-        else => .m32,
-    };
-
-    const store = switch (keyword) {
-        .@"psh.i64", .@"psh.i32" => true,
-        else => false,
-    };
-
-    try self.inst(Inst{ .memory_multi = .{
-        .size = size,
-        .base = .rSP,
-        .signed = false,
-        .store = store,
-        .lifo = true,
-        .bitmask = bitmask,
     } });
 }
 

@@ -62,11 +62,24 @@ pub const Keyword = enum(u8) {
     @"ldr.u32",
     @"ldr.s32",
     @"ldr.i64",
-
     @"str.i8",
     @"str.i16",
     @"str.i32",
     @"str.i64",
+
+    @"ldm.u8",
+    @"ldm.s8",
+    @"ldm.u16",
+    @"ldm.s16",
+    @"ldm.u32",
+    @"ldm.s32",
+    @"ldm.i64",
+    @"stm.i8",
+    @"stm.i16",
+    @"stm.i32",
+    @"stm.i64",
+    psh,
+    pop,
 
     @"ctl.w",
     @"ctl.r",
@@ -75,11 +88,6 @@ pub const Keyword = enum(u8) {
 
     @"irq.sw",
     @"irq.ret",
-
-    @"psh.i64",
-    @"psh.i32",
-    @"pop.i64",
-    @"pop.i32",
 };
 
 pub const Data = union(enum) {

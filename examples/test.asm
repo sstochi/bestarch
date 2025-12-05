@@ -1,13 +1,14 @@
 v_blank:
     .i8	    0x00
+ass:
+    .i64    0x696969
+    .i64    0x323232
+    .i64    0x161616
+    .i64    0x080808
 
 _start:
-    mov         r0, 1
-    mov         r1, 2
-    mov         r2, 3
-    mov         r3, 4
-    psh.i64     r0, r1, r2, r3
-    pop.i64     r0, r1, r2, r3
+    aui.pc      r0, .ass
+    ldm.i64     r0, r0, r1, r2, r3, r4
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
     aui.pc	    r0, ._xswi_handler

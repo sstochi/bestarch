@@ -22,7 +22,7 @@ pub fn load(
 }
 
 pub fn store(
-    self: *const Memory,
+    self: *Memory,
     addr: u64,
     comptime T: type,
     value: T,

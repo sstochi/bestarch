@@ -1,4 +1,5 @@
 const std = @import("std");
+const Bus = @import("Bus.zig");
 const Memory = @import("Memory.zig");
 const Assembler = @import("asm/Assembler.zig");
 const Cpu = @import("cpu/Cpu.zig");
@@ -17,11 +18,15 @@ pub fn main() !void {
     const start = as.labels.get("_start").?.?;
     std.debug.print("{X}\n", .{as.binary.items});
 
+    var bus = Bus.create();
+
     var memory = try Memory.create(allocator, 2048);
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
+    try bus.attach(&memory);
 
-    var cpu = Cpu.create(&memory, start);
+    var cpu = Cpu.create(start);
     cpu.set(.rSP, u64, memory.raw.len);
+    try bus.attach(&cpu);
 
     var puis = std.time.milliTimestamp();
     while (true) {
