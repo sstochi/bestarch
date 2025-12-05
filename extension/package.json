@@ -24,13 +24,13 @@
       {
         "language": "bestarch",
         "scopeName": "source.bestarch",
-        "path": "./syntaxes/bestarch.tmLanguage.json"
+        "path": "./syntaxes/bestarch.json"
       }
     ],
     "snippets": [
       {
         "language": "bestarch",
-        "path": "snippets/bestarch.tmLanguage.json"
+        "path": "./snippets/bestarch.json"
       }
     ]
   }

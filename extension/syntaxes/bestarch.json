@@ -7,7 +7,7 @@
     },
     {
       "name": "keyword.bestarch",
-      "match": "(?:\\.i8|\\.i16|\\.i32|\\.i64)\\b"
+      "match": "(?:\\.i8|\\.i16|\\.i32|\\.i64\\.alloc)\\b"
     },
     {
       "name": "variable.bestarch",
@@ -19,7 +19,7 @@
     },
     {
       "name": "variable.other.enummember.bestarch",
-      "match": "\\b(?:control|hwi|tmi|swi)\\b"
+      "match": "\\b(?:xctl|xhwi|xtmi|xswi)\\b"
     },
     {
       "name": "keyword.bestarch",

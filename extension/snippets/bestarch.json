@@ -363,6 +363,90 @@
     ],
     "description": "Store 64-bit value"
   },
+  "Load Multiple signed 8-bit": {
+    "prefix": "ldm.s8",
+    "body": [
+      "ldm.s8 ${1:reg}"
+    ],
+    "description": "Load signed 8-bit value"
+  },
+  "Load Multiple unsigned 8-bit": {
+    "prefix": "ldm.u8",
+    "body": [
+      "ldm.u8 ${1:reg}"
+    ],
+    "description": "Load unsigned 8-bit value"
+  },
+  "Load Multiple signed 16-bit": {
+    "prefix": "ldm.s16",
+    "body": [
+      "ldm.s16 ${1:reg}"
+    ],
+    "description": "Load signed 16-bit value"
+  },
+  "Load Multiple unsigned 16-bit": {
+    "prefix": "ldm.u16",
+    "body": [
+      "ldm.u16 ${1:reg}"
+    ],
+    "description": "Load unsigned 16-bit value"
+  },
+  "Load Multiple signed 32-bit": {
+    "prefix": "ldm.s32",
+    "body": [
+      "ldm.s32 ${1:reg}"
+    ],
+    "description": "Load signed 32-bit value"
+  },
+  "Load Multiple unsigned 32-bit": {
+    "prefix": "ldm.u32",
+    "body": [
+      "ldm.u32 ${1:reg}"
+    ],
+    "description": "Load unsigned 32-bit value"
+  },
+  "Load Multiple signed 64-bit": {
+    "prefix": "ldm.s64",
+    "body": [
+      "ldm.s64 ${1:reg}"
+    ],
+    "description": "Load signed 64-bit value"
+  },
+  "Load Multiple unsigned 64-bit": {
+    "prefix": "ldm.u64",
+    "body": [
+      "ldm.u64 ${1:reg}"
+    ],
+    "description": "Load unsigned 64-bit value"
+  },
+  "Store Multiple 8-bit": {
+    "prefix": "stm.i8",
+    "body": [
+      "stm.i8 ${1:reg}"
+    ],
+    "description": "Store 8-bit value"
+  },
+  "Store Multiple 16-bit": {
+    "prefix": "stm.i16",
+    "body": [
+      "stm.i16 ${1:reg}"
+    ],
+    "description": "Store 16-bit value"
+  },
+  "Store Multiple 32-bit": {
+    "prefix": "stm.i32",
+    "body": [
+      "stm.i32 ${1:reg}"
+    ],
+    "description": "Store 32-bit value"
+  },
+  "Store Multiple 64-bit": {
+    "prefix": "stm.i64",
+    "body": [
+      "stm.i64 ${1:reg}"
+    ],
+    "description": "Store 64-bit value"
+  },
   "Control Write": {
     "prefix": "ctl.w",
     "body": [
@@ -405,33 +489,19 @@
     ],
     "description": "Return from interrupt"
   },
-  "Push 32-bit": {
-    "prefix": "psh.i32",
+  "Push": {
+    "prefix": "psh",
     "body": [
-      "psh.i32 ${1:reg}"
+      "psh ${1:reg}"
     ],
-    "description": "Push 32-bit register(s) onto the stack"
+    "description": "Push register(s) onto the stack"
   },
-  "Push 64-bit": {
-    "prefix": "psh.i64",
+  "Pop": {
+    "prefix": "pop",
     "body": [
-      "psh.i64 ${1:reg}"
+      "pop ${1:reg}"
     ],
-    "description": "Push 64-bit register(s) onto the stack"
-  },
-  "Pop 32-bit": {
-    "prefix": "pop.i32",
-    "body": [
-      "pop.i32 ${1:reg}"
-    ],
-    "description": "Pop 32-bit register(s) from the stack"
-  },
-  "Pop 64-bit": {
-    "prefix": "pop.i64",
-    "body": [
-      "pop.i64 ${1:reg}"
-    ],
-    "description": "Pop 64-bit register(s) from the stack"
+    "description": "Pop register(s) from the stack"
   },
   "Register r0": {
     "prefix": "r0",
@@ -650,12 +720,12 @@
     ],
     "description": "Register 30"
   },
-  "Register r31": {
-    "prefix": "r31",
+  "Register rSP": {
+    "prefix": "rSP",
     "body": [
-      "r31"
+      "rSP"
     ],
-    "description": "Register 31"
+    "description": "Stack Register"
   },
   "Register rZ": {
     "prefix": "rz",

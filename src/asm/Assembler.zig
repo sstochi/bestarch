@@ -99,11 +99,11 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     return parser.err("Label name is too short", .{});
                 }
 
-                if (self.labels.contains(name)) {
-                    return parser.err("Label \"{s}\" already exists", .{name});
+                const key = name[0 .. name.len - 1];
+                if (self.labels.contains(key)) {
+                    return parser.err("Label \"{s}\" already exists", .{key});
                 }
 
-                const key = name[0 .. name.len - 1];
                 try self.labels.put(self.allocator, key, null);
             },
 
@@ -154,6 +154,12 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i16" => try parseConstant(self, parser, i16),
                 .@".i32" => try parseConstant(self, parser, i32),
                 .@".i64" => try parseConstant(self, parser, i64),
+
+                .@".alloc" => try self.binary.appendNTimes(
+                    self.allocator,
+                    0,
+                    try parser.integer(u64),
+                ),
 
                 // nop
                 .nop => try self.inst(Inst{ .move_imm = .{
