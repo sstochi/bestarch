@@ -7,8 +7,6 @@ ass:
     .i64    0x080808
 
 _start:
-    aui.pc      r0, .ass
-    ldm.i64     r0, r0, r1, r2, r3, r4
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
     aui.pc	    r0, ._xswi_handler

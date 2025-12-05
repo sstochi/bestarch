@@ -19,14 +19,14 @@ pub fn main() !void {
     std.debug.print("{X}\n", .{as.binary.items});
 
     var bus = Bus.create();
-
     var memory = try Memory.create(allocator, 2048);
-    @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
     try bus.attach(&memory);
 
     var cpu = Cpu.create(start);
     cpu.set(.rSP, u64, memory.raw.len);
     try bus.attach(&cpu);
+
+    @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
     var puis = std.time.milliTimestamp();
     while (true) {

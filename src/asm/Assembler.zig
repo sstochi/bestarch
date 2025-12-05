@@ -109,7 +109,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
             .keyword => |keyword| {
                 size = switch (keyword) {
-                    .@".i8", .@".i16", .@".i32", .@".i64" => 0,
+                    .@".i8", .@".i16", .@".i32", .@".i64" => size,
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 

@@ -13,6 +13,7 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
             }),
         });
+        exe.use_llvm = true;
 
         b.installArtifact(exe);
 
@@ -36,6 +37,7 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
             }),
         });
+        exe.use_llvm = true;
 
         b.installArtifact(exe);
 

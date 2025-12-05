@@ -45,12 +45,12 @@ pub fn clock(self: *Self) !void {
         .process => try self.groupProcess(&instr),
         .auipc => try self.groupAuiPC(&instr.addpc),
         .memory => try self.groupMemory(&instr.memory),
+        .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
         .branch => try self.groupBranch(&instr.branch),
         .jump_rel => try self.groupJumpRel(&instr.jump_rel),
         .jump_reg => try self.groupJumpReg(&instr.jump_reg),
         .ctl => try self.groupCtl(&instr.ctl),
         .irq => try self.groupIrq(&instr.irq),
-        .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
     }
 }
 
@@ -60,7 +60,7 @@ pub fn irq(self: *Self) !void {
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
-    const sp = self.get(.rSP, u64) - @sizeOf(I);
+    const sp = self.get(.rSP, u64) -% @sizeOf(I);
     try self.bus.store(sp, I, value);
     self.set(.rSP, u64, sp);
 }
@@ -68,7 +68,7 @@ pub fn push(self: *Self, comptime I: type, value: I) !void {
 pub fn pop(self: *Self, comptime I: type) !I {
     const sp = self.get(.rSP, u64);
     const value = try self.bus.load(sp, I);
-    self.set(.rSP, u64, sp + @sizeOf(I));
+    self.set(.rSP, u64, sp +% @sizeOf(I));
     return value;
 }
 
@@ -188,8 +188,7 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
         .divs => @bitCast(@divTrunc(@as(I, @bitCast(lhs)), @as(I, @bitCast(rhs)))),
         .modu => @rem(lhs, rhs),
         .mods => @bitCast(@rem(@as(I, @bitCast(lhs)), @as(I, @bitCast(rhs)))),
-
-        else => @panic("balls"),
+        else => @panic("Invalid code"),
     };
 
     self.set(data.dst, u64, result);

@@ -16,7 +16,9 @@ pub fn create() Self {
 
 pub fn attach(self: *Self, dev: anytype) !void {
     const type_info = @typeInfo(@TypeOf(dev));
-    if (type_info != .pointer) return error.InvalidType;
+    if (type_info != .pointer) {
+        return error.InvalidType;
+    }
 
     switch (type_info.pointer.child) {
         Cpu => {
