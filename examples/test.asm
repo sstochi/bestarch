@@ -6,7 +6,7 @@ v_blank:
     .i64    0x080808
     .alloc  48
 
-_start:
+_start: 
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
     aui.pc	    r0, ._xswi_handler
