@@ -13,7 +13,8 @@ const InstMoveCvt = isa.InstMoveCvt;
 const InstProcess = isa.InstProcess;
 const InstAuiPC = isa.InstAuiPC;
 const InstMemory = isa.InstMemory;
-const InstMemoryMulti = isa.InstMemoryMulti;
+// const InstMemoryMulti = isa.InstMemoryMulti;
+const InstMemoryPair = isa.InstMemoryPair;
 const InstBranch = isa.InstBranch;
 const InstJumpRel = isa.InstJumpRel;
 const InstJumpReg = isa.InstJumpReg;
@@ -45,7 +46,8 @@ pub fn clock(self: *Self) !void {
         .process => try self.groupProcess(&instr),
         .auipc => try self.groupAuiPC(&instr.addpc),
         .memory => try self.groupMemory(&instr.memory),
-        .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
+        .memory_pair => try self.groupMemoryPair(&instr.memory_pair),
+        // .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
         .branch => try self.groupBranch(&instr.branch),
         .jump_rel => try self.groupJumpRel(&instr.jump_rel),
         .jump_reg => try self.groupJumpReg(&instr.jump_reg),
@@ -200,7 +202,11 @@ fn groupAuiPC(self: *Self, data: *const InstAuiPC) !void {
 }
 
 fn groupMemory(self: *Self, data: *const InstMemory) !void {
-    const addr: u64 = @bitCast(self.get(data.base, i64) +% @as(i64, data.offset));
+    var addr: u64 = @bitCast(self.get(data.base, i64) +% @as(i64, data.offset));
+
+    const offset = @as(u64, @bitCast(@as(i64, data.offset)));
+    if (!data.post_inc) addr +%= offset;
+
     if (data.store) {
         const value = self.get(data.value, u64);
         switch (data.mode) {
@@ -226,109 +232,178 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
             });
         }
     }
+
+    if (data.post_inc) addr +%= offset;
 }
 
-fn groupMemoryMulti(self: *Self, data: *const InstMemoryMulti) !void {
-    const bit_set: std.bit_set.IntegerBitSet(18) = .{ .mask = data.bitmask };
-    const size: u64 = @popCount(data.bitmask) * @as(u64, switch (data.size) {
-        .m8 => @sizeOf(u8),
-        .m16 => @sizeOf(u16),
-        .m32 => @sizeOf(u32),
-        .m64 => @sizeOf(u64),
-    });
-
-    if (data.lifo) {
-        var iter = bit_set.iterator(.{ .direction = .reverse });
-        try self.groupMemoryMultiImpl(data, &iter, size);
-    } else {
-        var iter = bit_set.iterator(.{});
-        try self.groupMemoryMultiImpl(data, &iter, size);
-    }
-}
-
-fn groupMemoryMultiImpl(self: *Self, data: *const InstMemoryMulti, iter: anytype, size: u64) !void {
+fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
     var addr = self.get(data.base, u64);
-    var base: u64 = undefined;
+    const offset = @as(u64, @bitCast(@as(i64, data.offset)));
+    if (!data.post_inc) addr +%= offset;
 
     if (data.store) {
-        // if lifo, it will substract size (DB)
-        addr -%= @intFromBool(data.lifo) * size;
-        // else, it will add size (IA)
-        base = addr +% (~@intFromBool(data.lifo)) * size;
-
-        while (iter.next()) |i| {
-            const value = self.get(@enumFromInt(i), u64);
-            switch (data.size) {
-                .m8 => {
-                    try self.bus.store(addr, u8, @truncate(value));
-                    addr +%= @sizeOf(u8);
-                },
-                .m16 => {
-                    try self.bus.store(addr, u16, @truncate(value));
-                    addr +%= @sizeOf(u16);
-                },
-                .m32 => {
-                    try self.bus.store(addr, u32, @truncate(value));
-                    addr +%= @sizeOf(u32);
-                },
-                .m64 => {
-                    try self.bus.store(addr, u64, value);
-                    addr +%= @sizeOf(u64);
-                },
-            }
+        const value_a = self.get(data.value_a, u64);
+        const value_b = self.get(data.value_b, u64);
+        switch (data.mode) {
+            .m8 => try self.bus.store(addr, [2]u8, .{ @truncate(value_a), @truncate(value_b) }),
+            .m16 => try self.bus.store(addr, [2]u16, .{ @truncate(value_a), @truncate(value_b) }),
+            .m32 => try self.bus.store(addr, [2]u32, .{ @truncate(value_a), @truncate(value_b) }),
+            .m64 => try self.bus.store(addr, [2]u64, .{ value_a, value_b }),
         }
     } else {
-        while (iter.next()) |i| {
-            if (data.signed) {
-                addr = try self.groupMemoryMultiImplLoad(
-                    data,
-                    @enumFromInt(i),
-                    addr,
-                    true,
-                );
-            } else {
-                addr = try self.groupMemoryMultiImplLoad(
-                    data,
-                    @enumFromInt(i),
-                    addr,
-                    false,
-                );
+        var value_a: u64 = undefined;
+        var value_b: u64 = undefined;
+        if (data.signed) {
+            switch (data.mode) {
+                .m8 => {
+                    const a, const b = try self.bus.load(addr, [2]i8);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                },
+                .m16 => {
+                    const a, const b = try self.bus.load(addr, [2]i16);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                },
+                .m32 => {
+                    const a, const b = try self.bus.load(addr, [2]i32);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                },
+                .m64 => {
+                    const a, const b = try self.bus.load(addr, [2]i64);
+                    value_a, value_b = .{ @bitCast(a), @bitCast(b) };
+                },
+            }
+        } else {
+            switch (data.mode) {
+                .m8 => {
+                    value_a = try self.bus.load(addr, u8);
+                    value_b = try self.bus.load(addr + @sizeOf(u8), u8);
+                    addr +%= 2 * @sizeOf(u8);
+                },
+                .m16 => {
+                    value_a = try self.bus.load(addr, u16);
+                    value_b = try self.bus.load(addr + @sizeOf(u8), u16);
+                },
+                .m32 => {
+                    value_a = try self.bus.load(addr, u32);
+                    value_b = try self.bus.load(addr + @sizeOf(u8), u32);
+                },
+                .m64 => {
+                    value_a = try self.bus.load(addr, u64);
+                    value_b = try self.bus.load(addr + @sizeOf(u8), u64);
+                },
             }
         }
-
-        // load is always IA
-        base = addr;
+        self.set(data.value_a, u64, value_a);
+        self.set(data.value_b, u64, value_b);
     }
 
-    self.set(data.base, u64, base);
+    if (data.post_inc) addr +%= offset;
+
+    // write back
+    self.set(data.base, u64, addr);
 }
 
-fn groupMemoryMultiImplLoad(self: *Self, data: *const InstMemoryMulti, reg: Reg, addr: u64, comptime signed: bool) !u64 {
-    var value: if (signed) i64 else u64 = 0;
-    var size: u64 = 0;
+// fn groupMemoryMulti(self: *Self, data: *const InstMemoryPair) !void {
+//     const bit_set: std.bit_set.IntegerBitSet(18) = .{ .mask = data.bitmask };
+//     const size: u64 = @popCount(data.bitmask) * @as(u64, switch (data.size) {
+//         .m8 => @sizeOf(u8),
+//         .m16 => @sizeOf(u16),
+//         .m32 => @sizeOf(u32),
+//         .m64 => @sizeOf(u64),
+//     });
 
-    switch (data.size) {
-        .m8 => {
-            value = try self.bus.load(addr, if (signed) i8 else u8);
-            size = @sizeOf(i8);
-        },
-        .m16 => {
-            value = try self.bus.load(addr, if (signed) i16 else u16);
-            size = @sizeOf(i16);
-        },
-        .m32 => {
-            value = try self.bus.load(addr, if (signed) i32 else u32);
-            size = @sizeOf(i32);
-        },
-        .m64 => {
-            value = try self.bus.load(addr, if (signed) i64 else u64);
-            size = @sizeOf(i64);
-        },
-    }
+//     if (data.lifo) {
+//         var iter = bit_set.iterator(.{ .direction = .reverse });
+//         try self.groupMemoryMultiImpl(data, &iter, size);
+//     } else {
+//         var iter = bit_set.iterator(.{});
+//         try self.groupMemoryMultiImpl(data, &iter, size);
+//     }
+// }
 
-    self.set(reg, @TypeOf(value), value);
-    return addr +% size;
-}
+// fn groupMemoryMultiImpl(self: *Self, data: *const InstMemoryMulti, iter: anytype, size: u64) !void {
+//     var addr = self.get(data.base, u64);
+//     var base: u64 = undefined;
+
+//     if (data.store) {
+//         // if lifo, it will substract size (DB)
+//         addr -%= @intFromBool(data.lifo) * size;
+//         // else, it will add size (IA)
+//         base = addr +% (~@intFromBool(data.lifo)) * size;
+
+//         while (iter.next()) |i| {
+//             const value = self.get(@enumFromInt(i), u64);
+//             switch (data.size) {
+//                 .m8 => {
+//                     try self.bus.store(addr, u8, @truncate(value));
+//                     addr +%= @sizeOf(u8);
+//                 },
+//                 .m16 => {
+//                     try self.bus.store(addr, u16, @truncate(value));
+//                     addr +%= @sizeOf(u16);
+//                 },
+//                 .m32 => {
+//                     try self.bus.store(addr, u32, @truncate(value));
+//                     addr +%= @sizeOf(u32);
+//                 },
+//                 .m64 => {
+//                     try self.bus.store(addr, u64, value);
+//                     addr +%= @sizeOf(u64);
+//                 },
+//             }
+//         }
+//     } else {
+//         while (iter.next()) |i| {
+//             if (data.signed) {
+//                 addr = try self.groupMemoryMultiImplLoad(
+//                     data,
+//                     @enumFromInt(i),
+//                     addr,
+//                     true,
+//                 );
+//             } else {
+//                 addr = try self.groupMemoryMultiImplLoad(
+//                     data,
+//                     @enumFromInt(i),
+//                     addr,
+//                     false,
+//                 );
+//             }
+//         }
+
+//         // load is always IA
+//         base = addr;
+//     }
+
+//     self.set(data.base, u64, base);
+// }
+
+// fn groupMemoryMultiImplLoad(self: *Self, data: *const InstMemoryMulti, reg: Reg, addr: u64, comptime signed: bool) !u64 {
+//     var value: if (signed) i64 else u64 = 0;
+//     var size: u64 = 0;
+
+//     switch (data.size) {
+//         .m8 => {
+//             value = try self.bus.load(addr, if (signed) i8 else u8);
+//             size = @sizeOf(i8);
+//         },
+//         .m16 => {
+//             value = try self.bus.load(addr, if (signed) i16 else u16);
+//             size = @sizeOf(i16);
+//         },
+//         .m32 => {
+//             value = try self.bus.load(addr, if (signed) i32 else u32);
+//             size = @sizeOf(i32);
+//         },
+//         .m64 => {
+//             value = try self.bus.load(addr, if (signed) i64 else u64);
+//             size = @sizeOf(i64);
+//         },
+//     }
+
+//     self.set(reg, @TypeOf(value), value);
+//     return addr +% size;
+// }
 
 fn groupBranch(self: *Self, data: *const InstBranch) !void {
     var lhs = self.get(data.lhs, u64);

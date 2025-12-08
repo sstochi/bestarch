@@ -15,7 +15,7 @@ pub fn main() !void {
 
     try as.assemble(source);
 
-    const start = as.labels.get("_start").?.?;
+    const start = as.labels.get("_start").?;
     std.debug.print("{X}\n", .{as.binary.items});
 
     var bus = Bus.create();

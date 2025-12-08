@@ -25,7 +25,8 @@ pub const Error = error{
 };
 
 allocator: std.mem.Allocator,
-labels: std.StringHashMapUnmanaged(?usize) = .empty,
+labels: std.StringHashMapUnmanaged(usize) = .empty,
+pending_labels: std.ArrayList([]const u8) = .empty,
 binary: std.ArrayList(u8) = .empty,
 
 pub fn create(allocator: std.mem.Allocator) Error!Self {
@@ -39,6 +40,13 @@ pub fn create(allocator: std.mem.Allocator) Error!Self {
 pub fn destroy(self: *Self) void {
     self.labels.deinit(self.allocator);
     self.binary.deinit(self.allocator);
+}
+
+pub fn resolveLabels(self: *Self, addr: usize) void {
+    for (self.pending_labels.items) |label| {
+        self.labels.putAssumeCapacity(label, addr);
+    }
+    self.pending_labels.clearRetainingCapacity();
 }
 
 pub fn assemble(self: *Self, source: []const u8) Error!void {
@@ -59,6 +67,13 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
             }
             return err;
         };
+    }
+
+    self.resolveLabels(binary_size);
+
+    var it = self.labels.iterator();
+    while (it.next()) |entry| {
+        std.debug.print("{s}: {}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
     }
 
     // parse instructions
@@ -100,11 +115,10 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                 }
 
                 const key = name[0 .. name.len - 1];
-                if (self.labels.contains(key)) {
-                    return parser.err("Label \"{s}\" already exists", .{key});
-                }
 
-                try self.labels.put(self.allocator, key, null);
+                const entry = try self.labels.getOrPut(self.allocator, key);
+                if (entry.found_existing) return parser.err("Found existing label", .{});
+                try self.pending_labels.append(self.allocator, key);
             },
 
             .keyword => |keyword| {
@@ -113,13 +127,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 
-                // store label(s) offsets
-                var iter = self.labels.valueIterator();
-                while (iter.next()) |value| {
-                    if (value.* == null) {
-                        value.* = size;
-                    }
-                }
+                self.resolveLabels(binary_size);
 
                 // increment by size
                 size += switch (keyword) {
@@ -217,26 +225,42 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"str.i64",
                 => try self.parseMemoryInstr(parser, keyword),
 
-                // ldm r0, r1, r2, r3, r4
-                .@"ldm.s8",
-                .@"ldm.u8",
-                .@"ldm.s16",
-                .@"ldm.u16",
-                .@"ldm.s32",
-                .@"ldm.u32",
-                .@"ldm.i64",
-                .@"stm.i8",
-                .@"stm.i16",
-                .@"stm.i32",
-                .@"stm.i64",
+                // // ldm r0, r1, r2, r3, r4
+                // .@"ldm.s8",
+                // .@"ldm.u8",
+                // .@"ldm.s16",
+                // .@"ldm.u16",
+                // .@"ldm.s32",
+                // .@"ldm.u32",
+                // .@"ldm.i64",
+                // .@"stm.i8",
+                // .@"stm.i16",
+                // .@"stm.i32",
+                // .@"stm.i64",
+                // => {
+                //     const base = try parser.register("base");
+                //     try parser.operator(.@",");
+                //     try self.parseMemoryMultiInstr(parser, base, keyword);
+                // },
+
+                // ldm r0, r1, rb + i9
+                .@"ldp.s8",
+                .@"ldp.u8",
+                .@"ldp.s16",
+                .@"ldp.u16",
+                .@"ldp.s32",
+                .@"ldp.u32",
+                .@"ldp.i64",
+                .@"stp.i8",
+                .@"stp.i16",
+                .@"stp.i32",
+                .@"stp.i64",
                 => {
-                    const base = try parser.register("base");
-                    try parser.operator(.@",");
-                    try self.parseMemoryMultiInstr(parser, base, keyword);
+                    try self.parseMemoryPair(parser, keyword);
                 },
 
                 // psh r0, r2, r4, ...
-                .psh, .pop => try self.parseMemoryMultiInstr(parser, .rSP, keyword),
+                .psh, .pop => try self.parsePushPop(parser, keyword),
 
                 // bltu ra, rb, i13
                 .@"bra.eq",
@@ -403,9 +427,9 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
     try parser.operator(.@",");
     const base_reg = try parser.register("base");
 
-    var offset: i14 = 0;
+    var offset: i13 = 0;
     if (try parser.expect(.@"+")) |_| {
-        offset = try parser.integer(i14);
+        offset = try parser.integer(i13);
     }
 
     const mode: MemorySize2 = switch (Keyword) {
@@ -430,6 +454,7 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
         .mode = mode,
         .signed = signed,
         .store = store,
+        .post_inc = false,
 
         .value = value_reg,
         .base = base_reg,
@@ -437,45 +462,77 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
     } });
 }
 
-fn parseMemoryMultiInstr(self: *Self, parser: *Parser, base: Reg, keyword: Token.Keyword) Error!void {
-    var reg = try parser.register("reg");
-    var bitmask: u18 = @as(u18, 1) << @intFromEnum(reg);
+fn parsePushPop(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
+    const value = try parser.register("value");
 
-    for (0..@bitSizeOf(@TypeOf(bitmask)) - 1) |_| {
-        try parser.expect(.@",") orelse break;
-        reg = try parser.register("reg");
+    const store = switch (keyword) {
+        .psh => true,
+        .pop => false,
+        else => unreachable,
+    };
 
-        if ((bitmask & (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg))) != 0) {
-            return parser.err("Register {t} is already present in the list", .{reg});
-        }
+    const offset: i13 = switch (keyword) {
+        .psh => -8,
+        .pop => 8,
+        else => unreachable,
+    };
 
-        bitmask |= (@as(@TypeOf(bitmask), 1) << @intFromEnum(reg));
-    }
+    try self.inst(Inst{ .memory = .{
+        .mode = .m64,
+        .signed = false,
+        .store = store,
+        .post_inc = store,
+        .value = value,
+        .base = .rSP,
+        .offset = offset,
+    } });
+}
 
-    const size: MemorySize2 = switch (keyword) {
-        .@"ldm.s8", .@"ldm.u8", .@"stm.i8" => .m8,
-        .@"ldm.s16", .@"ldm.u16", .@"stm.i16" => .m16,
-        .@"ldm.s32", .@"ldm.u32", .@"stm.i32" => .m32,
+fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
+    const value_a = try parser.register("value A");
+    try parser.operator(.@",");
+    const value_b = try parser.register("value B");
+    try parser.operator(.@",");
+    const base = try parser.register("base");
+    const next = try parser.token();
+    const post_inc = switch (next.data) {
+        .@"<" => false,
+        .@">" => true,
+        else => return parser.err("Must be a pre increment > or a post increment <", .{}),
+    };
+    const offset = try parser.integer(i8);
+
+    const mode: MemorySize2 = switch (keyword) {
+        .@"ldp.s8", .@"ldp.u8", .@"stp.i8" => .m8,
+        .@"ldp.s16", .@"ldp.u16", .@"stp.i16" => .m16,
+        .@"ldp.s32", .@"ldp.u32", .@"stp.i32" => .m32,
         else => .m64,
     };
 
+    const signed = switch (keyword) {
+        .@"ldp.s8", .@"ldp.s16", .@"ldp.s32" => true,
+        else => false,
+    };
+
     const store = switch (keyword) {
-        .@"stm.i8",
-        .@"stm.i16",
-        .@"stm.i32",
-        .@"stm.i64",
-        .psh,
+        .@"stp.i8",
+        .@"stp.i16",
+        .@"stp.i32",
+        .@"stp.i64",
+        // .psh,
         => true,
         else => false,
     };
 
-    try self.inst(Inst{ .memory_multi = .{
-        .size = size,
-        .base = base,
-        .signed = false,
+    try self.inst(Inst{ .memory_pair = .{
+        .mode = mode,
+        .signed = signed,
         .store = store,
-        .lifo = true,
-        .bitmask = bitmask,
+        .post_inc = post_inc,
+        .value_a = value_a,
+        .value_b = value_b,
+        .base = base,
+        .offset = offset,
     } });
 }
 
@@ -589,12 +646,13 @@ fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize
     }
 
     const key = name[1..];
-    if (!self.labels.contains(key)) {
-        return parser.err("Label \"{s}\" does not exist", .{key});
-    }
+    // if (!self.labels.contains(key)) {
+    //     return parser.err("Label \"{s}\" does not exist", .{key});
+    // }
 
-    return self.labels.get(key).? orelse {
-        return parser.err("Label \"{s}\" exists, but has no defined address", .{key});
+    return self.labels.get(key) orelse {
+        return parser.err("Label \"{s}\" does not exist", .{key});
+        // return parser.err("Label \"{s}\" exists, but has no defined address", .{key});
     };
 }
 

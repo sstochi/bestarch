@@ -45,7 +45,8 @@ pub const Group = enum(u4) {
     move,
     process,
     memory,
-    memory_multi,
+    memory_pair,
+    // memory_multi,
     branch,
     jump_rel,
     jump_reg,
@@ -231,22 +232,36 @@ pub const InstMemory = packed struct(u32) {
     mode: MemorySize2,
     signed: bool,
     store: bool,
+    post_inc: bool,
 
     value: Reg,
     base: Reg,
-    offset: i14,
+    offset: i13,
 };
 
-pub const InstMemoryMulti = packed struct(u32) {
-    group: Group = .memory_multi,
-    size: MemorySize2,
-    lifo: bool,
+pub const InstMemoryPair = packed struct(u32) {
+    group: Group = .memory_pair,
+    mode: MemorySize2,
     signed: bool,
     store: bool,
+    post_inc: bool,
 
+    value_a: Reg,
+    value_b: Reg,
     base: Reg,
-    bitmask: u18,
+    offset: i8,
 };
+
+// pub const InstMemoryMulti = packed struct(u32) {
+//     group: Group = .memory_multi,
+//     size: MemorySize2,
+//     lifo: bool,
+//     signed: bool,
+//     store: bool,
+
+//     base: Reg,
+//     bitmask: u18,
+// };
 
 pub const InstBranch = packed struct(u32) {
     group: Group = .branch,
@@ -302,7 +317,8 @@ pub const Inst = packed union {
     process_reg: InstProcessReg,
     addpc: InstAuiPC,
     memory: InstMemory,
-    memory_multi: InstMemoryMulti,
+    memory_pair: InstMemoryPair,
+    // memory_multi: InstMemoryMulti,
     branch: InstBranch,
     jump_rel: InstJumpRel,
     jump_reg: InstJumpReg,

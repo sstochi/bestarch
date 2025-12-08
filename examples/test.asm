@@ -6,7 +6,10 @@ v_blank:
     .i64    0x080808
     .alloc  48
 
-_start: 
+_start:
+    # ldp.i64     r1, r2, r4 < -16
+    # ldp.i64     r1, r2, r4 < -16
+
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
     aui.pc	    r0, ._xswi_handler
