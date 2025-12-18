@@ -152,8 +152,9 @@ pub fn token(self: *Self) Assembler.Error!Token {
             },
             ',' => .@",",
             '+' => .@"+",
-            '<' => if (self.takeByte('<')) .@"<<" else .@"<",
-            '>' => if (self.takeByte('>')) .@">>" else .@">",
+            '!' => .@"!",
+            '<' => if (self.takeByte('<')) .@"<<" else continue,
+            '>' => if (self.takeByte('>')) .@">>" else continue,
             '\x00' => .eof,
             else => return self.err("Unexpected token: {c}", .{c}),
         };

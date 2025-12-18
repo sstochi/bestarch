@@ -13,7 +13,6 @@ const InstMoveCvt = isa.InstMoveCvt;
 const InstProcess = isa.InstProcess;
 const InstAuiPC = isa.InstAuiPC;
 const InstMemory = isa.InstMemory;
-// const InstMemoryMulti = isa.InstMemoryMulti;
 const InstMemoryPair = isa.InstMemoryPair;
 const InstBranch = isa.InstBranch;
 const InstJumpRel = isa.InstJumpRel;
@@ -205,7 +204,9 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
     var addr: u64 = @bitCast(self.get(data.base, i64) +% @as(i64, data.offset));
 
     const offset = @as(u64, @bitCast(@as(i64, data.offset)));
-    if (!data.post_inc) addr +%= offset;
+    if (!data.post_inc) {
+        addr +%= offset;
+    }
 
     if (data.store) {
         const value = self.get(data.value, u64);
@@ -297,113 +298,13 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
         self.set(data.value_b, u64, value_b);
     }
 
-    if (data.post_inc) addr +%= offset;
+    if (data.post_inc) {
+        addr +%= offset;
+    }
 
     // write back
     self.set(data.base, u64, addr);
 }
-
-// fn groupMemoryMulti(self: *Self, data: *const InstMemoryPair) !void {
-//     const bit_set: std.bit_set.IntegerBitSet(18) = .{ .mask = data.bitmask };
-//     const size: u64 = @popCount(data.bitmask) * @as(u64, switch (data.size) {
-//         .m8 => @sizeOf(u8),
-//         .m16 => @sizeOf(u16),
-//         .m32 => @sizeOf(u32),
-//         .m64 => @sizeOf(u64),
-//     });
-
-//     if (data.lifo) {
-//         var iter = bit_set.iterator(.{ .direction = .reverse });
-//         try self.groupMemoryMultiImpl(data, &iter, size);
-//     } else {
-//         var iter = bit_set.iterator(.{});
-//         try self.groupMemoryMultiImpl(data, &iter, size);
-//     }
-// }
-
-// fn groupMemoryMultiImpl(self: *Self, data: *const InstMemoryMulti, iter: anytype, size: u64) !void {
-//     var addr = self.get(data.base, u64);
-//     var base: u64 = undefined;
-
-//     if (data.store) {
-//         // if lifo, it will substract size (DB)
-//         addr -%= @intFromBool(data.lifo) * size;
-//         // else, it will add size (IA)
-//         base = addr +% (~@intFromBool(data.lifo)) * size;
-
-//         while (iter.next()) |i| {
-//             const value = self.get(@enumFromInt(i), u64);
-//             switch (data.size) {
-//                 .m8 => {
-//                     try self.bus.store(addr, u8, @truncate(value));
-//                     addr +%= @sizeOf(u8);
-//                 },
-//                 .m16 => {
-//                     try self.bus.store(addr, u16, @truncate(value));
-//                     addr +%= @sizeOf(u16);
-//                 },
-//                 .m32 => {
-//                     try self.bus.store(addr, u32, @truncate(value));
-//                     addr +%= @sizeOf(u32);
-//                 },
-//                 .m64 => {
-//                     try self.bus.store(addr, u64, value);
-//                     addr +%= @sizeOf(u64);
-//                 },
-//             }
-//         }
-//     } else {
-//         while (iter.next()) |i| {
-//             if (data.signed) {
-//                 addr = try self.groupMemoryMultiImplLoad(
-//                     data,
-//                     @enumFromInt(i),
-//                     addr,
-//                     true,
-//                 );
-//             } else {
-//                 addr = try self.groupMemoryMultiImplLoad(
-//                     data,
-//                     @enumFromInt(i),
-//                     addr,
-//                     false,
-//                 );
-//             }
-//         }
-
-//         // load is always IA
-//         base = addr;
-//     }
-
-//     self.set(data.base, u64, base);
-// }
-
-// fn groupMemoryMultiImplLoad(self: *Self, data: *const InstMemoryMulti, reg: Reg, addr: u64, comptime signed: bool) !u64 {
-//     var value: if (signed) i64 else u64 = 0;
-//     var size: u64 = 0;
-
-//     switch (data.size) {
-//         .m8 => {
-//             value = try self.bus.load(addr, if (signed) i8 else u8);
-//             size = @sizeOf(i8);
-//         },
-//         .m16 => {
-//             value = try self.bus.load(addr, if (signed) i16 else u16);
-//             size = @sizeOf(i16);
-//         },
-//         .m32 => {
-//             value = try self.bus.load(addr, if (signed) i32 else u32);
-//             size = @sizeOf(i32);
-//         },
-//         .m64 => {
-//             value = try self.bus.load(addr, if (signed) i64 else u64);
-//             size = @sizeOf(i64);
-//         },
-//     }
-
-//     self.set(reg, @TypeOf(value), value);
-//     return addr +% size;
-// }
 
 fn groupBranch(self: *Self, data: *const InstBranch) !void {
     var lhs = self.get(data.lhs, u64);

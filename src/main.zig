@@ -37,6 +37,4 @@ pub fn main() !void {
             puis = std.time.milliTimestamp();
         }
     }
-
-    std.debug.print("{any}\n", .{cpu.r});
 }

@@ -135,6 +135,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     .@".i16" => @sizeOf(i16),
                     .@".i32" => @sizeOf(i32),
                     .@".i64" => @sizeOf(i64),
+                    .@".zalloc" => try parser.integer(u64),
                     else => @sizeOf(Inst),
                 };
             },
@@ -163,7 +164,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i32" => try parseConstant(self, parser, i32),
                 .@".i64" => try parseConstant(self, parser, i64),
 
-                .@".alloc" => try self.binary.appendNTimes(
+                .@".zalloc" => try self.binary.appendNTimes(
                     self.allocator,
                     0,
                     try parser.integer(u64),
@@ -493,14 +494,19 @@ fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
     try parser.operator(.@",");
     const value_b = try parser.register("value B");
     try parser.operator(.@",");
+
     const base = try parser.register("base");
-    const next = try parser.token();
-    const post_inc = switch (next.data) {
-        .@"<" => false,
-        .@">" => true,
-        else => return parser.err("Must be a pre increment > or a post increment <", .{}),
-    };
-    const offset = try parser.integer(i8);
+
+    var offset: i8 = 0;
+    var post_inc: bool = false;
+
+    if (try parser.expect(.@"+")) |_| {
+        offset = try parser.integer(i8);
+
+        if (try parser.expect(.@"!")) |_| {
+            post_inc = true;
+        }
+    }
 
     const mode: MemorySize2 = switch (keyword) {
         .@"ldp.s8", .@"ldp.u8", .@"stp.i8" => .m8,

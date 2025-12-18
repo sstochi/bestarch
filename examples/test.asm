@@ -4,12 +4,9 @@ v_blank:
     .i64    0x323232
     .i64    0x161616
     .i64    0x080808
-    .alloc  48
+    .zalloc  48
 
 _start:
-    # ldp.i64     r1, r2, r4 < -16
-    # ldp.i64     r1, r2, r4 < -16
-
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
     aui.pc	    r0, ._xswi_handler

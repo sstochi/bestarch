@@ -10,7 +10,7 @@ pub const Keyword = enum(u8) {
     @".i16",
     @".i32",
     @".i64",
-    @".alloc",
+    @".zalloc",
 
     nop,
     mov,
@@ -113,8 +113,7 @@ pub const Data = union(enum) {
     @".",
     @",",
     @"+",
-    @"<",
-    @">",
+    @"!",
     @"<<",
     @">>",
 
