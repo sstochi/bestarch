@@ -1,5 +1,5 @@
 pub const Reg = enum(u5) {
-    r0,
+    r0, // general-purpose registers
     r1,
     r2,
     r3,
@@ -30,15 +30,14 @@ pub const Reg = enum(u5) {
     r28,
     r29,
 
-    rSP, // stack pointer
-    rZ, // zero register
+    rsp, // stack pointer
+    rz, // zero register
 };
 
 pub const CtlReg = enum(u3) {
-    xctl,
-    xhwi, // hw interrupt
-    xtmi, // sw interrupt
-    xswi, // timer interrupt
+    xsta, // status register
+    xswi, // software interrupt handler
+    xhwi, // hardware interrupt handler
 };
 
 pub const Group = enum(u4) {
@@ -46,7 +45,6 @@ pub const Group = enum(u4) {
     process,
     memory,
     memory_pair,
-    // memory_multi,
     branch,
     jump_rel,
     jump_reg,
@@ -168,9 +166,9 @@ pub const InstMoveCvt = packed struct(u32) {
     group: Group = .move,
 
     mode: MoveMode = .cvt,
+    code: MoveCvtCode,
 
     dst: Reg,
-    code: MoveCvtCode,
     src: Reg,
     reserved: u11 = 0,
 };
@@ -252,17 +250,6 @@ pub const InstMemoryPair = packed struct(u32) {
     offset: i8,
 };
 
-// pub const InstMemoryMulti = packed struct(u32) {
-//     group: Group = .memory_multi,
-//     size: MemorySize2,
-//     lifo: bool,
-//     signed: bool,
-//     store: bool,
-
-//     base: Reg,
-//     bitmask: u18,
-// };
-
 pub const InstBranch = packed struct(u32) {
     group: Group = .branch,
     lhs: Reg,
@@ -318,7 +305,6 @@ pub const Inst = packed union {
     addpc: InstAuiPC,
     memory: InstMemory,
     memory_pair: InstMemoryPair,
-    // memory_multi: InstMemoryMulti,
     branch: InstBranch,
     jump_rel: InstJumpRel,
     jump_reg: InstJumpReg,

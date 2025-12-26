@@ -23,7 +23,7 @@ pub fn main() !void {
     try bus.attach(&memory);
 
     var cpu = Cpu.create(start);
-    cpu.set(.rSP, u64, memory.raw.len);
+    cpu.set(.rsp, u64, memory.raw.len);
     try bus.attach(&cpu);
 
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);

@@ -71,11 +71,6 @@ pub fn assemble(self: *Self, source: []const u8) Error!void {
 
     self.resolveLabels(binary_size);
 
-    var it = self.labels.iterator();
-    while (it.next()) |entry| {
-        std.debug.print("{s}: {}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
-    }
-
     // parse instructions
     try self.binary.ensureTotalCapacity(self.allocator, binary_size);
     lines = std.mem.splitScalar(u8, source, '\n');
@@ -115,7 +110,6 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                 }
 
                 const key = name[0 .. name.len - 1];
-
                 const entry = try self.labels.getOrPut(self.allocator, key);
                 if (entry.found_existing) return parser.err("Found existing label", .{});
                 try self.pending_labels.append(self.allocator, key);
@@ -171,11 +165,13 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 ),
 
                 // nop
-                .nop => try self.inst(Inst{ .move_imm = .{
-                    .dst = .rZ,
-                    .mode = .imm,
-                    .imm = 0,
-                } }),
+                .nop => try self.inst(Inst{
+                    .move_imm = .{
+                        .dst = .rz,
+                        .mode = .imm,
+                        .imm = 0,
+                    },
+                }),
 
                 // mov rd, i21
                 .mov => try self.parseMovInstr(parser),
@@ -226,24 +222,6 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"str.i64",
                 => try self.parseMemoryInstr(parser, keyword),
 
-                // // ldm r0, r1, r2, r3, r4
-                // .@"ldm.s8",
-                // .@"ldm.u8",
-                // .@"ldm.s16",
-                // .@"ldm.u16",
-                // .@"ldm.s32",
-                // .@"ldm.u32",
-                // .@"ldm.i64",
-                // .@"stm.i8",
-                // .@"stm.i16",
-                // .@"stm.i32",
-                // .@"stm.i64",
-                // => {
-                //     const base = try parser.register("base");
-                //     try parser.operator(.@",");
-                //     try self.parseMemoryMultiInstr(parser, base, keyword);
-                // },
-
                 // ldm r0, r1, rb + i9
                 .@"ldp.s8",
                 .@"ldp.u8",
@@ -256,9 +234,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"stp.i16",
                 .@"stp.i32",
                 .@"stp.i64",
-                => {
-                    try self.parseMemoryPair(parser, keyword);
-                },
+                => try self.parseMemoryPair(parser, keyword),
 
                 // psh r0, r2, r4, ...
                 .psh, .pop => try self.parsePushPop(parser, keyword),
@@ -298,7 +274,6 @@ fn parseConstant(self: *Self, parser: *Parser, comptime I: type) Error!void {
     const value = switch (token.data) {
         .ident => |ident| @as(i64, @bitCast(@as(u64, try self.findLabelAbsolute(parser, ident)))),
         .integer => |val| val,
-
         else => return parser.err("Value must be a known comptime-time constant", .{}),
     };
 
@@ -309,11 +284,13 @@ fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
     const dst_reg = try parser.register("dst");
     try parser.operator(.@",");
 
-    try self.inst(Inst{ .move_imm = .{
-        .dst = dst_reg,
-        .mode = .imm,
-        .imm = try parser.integer(i21),
-    } });
+    try self.inst(Inst{
+        .move_imm = .{
+            .dst = dst_reg,
+            .mode = .imm,
+            .imm = try parser.integer(i21),
+        },
+    });
 }
 
 fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
@@ -329,10 +306,12 @@ fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
 
-    try self.inst(Inst{ .addpc = .{
-        .dst = dst_reg,
-        .offset = offset,
-    } });
+    try self.inst(Inst{
+        .addpc = .{
+            .dst = dst_reg,
+            .offset = offset,
+        },
+    });
 }
 
 fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
@@ -409,15 +388,17 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
                 else => {},
             }
 
-            try self.inst(Inst{ .process_reg = .{
-                .code = code,
-                .size = mode,
-                .dst = dst_reg,
-                .lhs = lhs_reg,
-                .value = rhs_reg,
-                .shift = shift,
-                .amount = amount,
-            } });
+            try self.inst(Inst{
+                .process_reg = .{
+                    .code = code,
+                    .size = mode,
+                    .dst = dst_reg,
+                    .lhs = lhs_reg,
+                    .value = rhs_reg,
+                    .shift = shift,
+                    .amount = amount,
+                },
+            });
         },
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
@@ -451,16 +432,18 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
         else => false,
     };
 
-    try self.inst(Inst{ .memory = .{
-        .mode = mode,
-        .signed = signed,
-        .store = store,
-        .post_inc = false,
+    try self.inst(Inst{
+        .memory = .{
+            .mode = mode,
+            .signed = signed,
+            .store = store,
+            .post_inc = false,
 
-        .value = value_reg,
-        .base = base_reg,
-        .offset = offset,
-    } });
+            .value = value_reg,
+            .base = base_reg,
+            .offset = offset,
+        },
+    });
 }
 
 fn parsePushPop(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
@@ -478,15 +461,17 @@ fn parsePushPop(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void
         else => unreachable,
     };
 
-    try self.inst(Inst{ .memory = .{
-        .mode = .m64,
-        .signed = false,
-        .store = store,
-        .post_inc = store,
-        .value = value,
-        .base = .rSP,
-        .offset = offset,
-    } });
+    try self.inst(Inst{
+        .memory = .{
+            .mode = .m64,
+            .signed = false,
+            .store = store,
+            .post_inc = store,
+            .value = value,
+            .base = .rsp,
+            .offset = offset,
+        },
+    });
 }
 
 fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
@@ -525,21 +510,22 @@ fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
         .@"stp.i16",
         .@"stp.i32",
         .@"stp.i64",
-        // .psh,
         => true,
         else => false,
     };
 
-    try self.inst(Inst{ .memory_pair = .{
-        .mode = mode,
-        .signed = signed,
-        .store = store,
-        .post_inc = post_inc,
-        .value_a = value_a,
-        .value_b = value_b,
-        .base = base,
-        .offset = offset,
-    } });
+    try self.inst(Inst{
+        .memory_pair = .{
+            .mode = mode,
+            .signed = signed,
+            .store = store,
+            .post_inc = post_inc,
+            .value_a = value_a,
+            .value_b = value_b,
+            .base = base,
+            .offset = offset,
+        },
+    });
 }
 
 fn parseBranchInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void {
@@ -572,17 +558,23 @@ fn parseBranchInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
 
-    try self.inst(Inst{ .branch = .{
-        .lhs = lhs_reg,
-        .rhs = rhs_reg,
-        .flags = flags,
-        .offset = offset,
-    } });
+    try self.inst(Inst{
+        .branch = .{
+            .lhs = lhs_reg,
+            .rhs = rhs_reg,
+            .flags = flags,
+            .offset = offset,
+        },
+    });
 }
 
 fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
-    const link_reg = try parser.register("link");
-    try parser.operator(.@",");
+    var link_reg = Reg.rz;
+
+    if (try parser.expect(.reg)) |reg| {
+        link_reg = reg;
+        try parser.operator(.@",");
+    }
 
     const tok = try parser.token();
     switch (tok.data) {
@@ -601,11 +593,13 @@ fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
         },
 
         .reg => |base| {
-            try self.inst(Inst{ .jump_reg = .{
-                .link = link_reg,
-                .base = base,
-                .offset = try parser.integer(i18),
-            } });
+            try self.inst(Inst{
+                .jump_reg = .{
+                    .link = link_reg,
+                    .base = base,
+                    .offset = try parser.integer(i18),
+                },
+            });
         },
 
         else => return parser.err("Unexpected {t}", .{tok.data}),
@@ -614,14 +608,18 @@ fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
 
 fn parseIrqInstr(self: *Self, parser: *Parser) Error!void {
     if (try parser.expect(.integer)) |val| {
-        try self.inst(Inst{ .irq = .{
-            .mode = .swi,
-            .code = @truncate(@as(u64, @bitCast(val))),
-        } });
+        try self.inst(Inst{
+            .irq = .{
+                .mode = .swi,
+                .code = @truncate(@as(u64, @bitCast(val))),
+            },
+        });
     } else {
-        try self.inst(Inst{ .irq = .{
-            .mode = .ret,
-        } });
+        try self.inst(Inst{
+            .irq = .{
+                .mode = .ret,
+            },
+        });
     }
 }
 
@@ -639,11 +637,13 @@ fn parseCtlInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!voi
         else => unreachable,
     };
 
-    try self.inst(Inst{ .ctl = .{
-        .mode = mode,
-        .target = ctl_reg,
-        .reg = val_reg,
-    } });
+    try self.inst(Inst{
+        .ctl = .{
+            .mode = mode,
+            .target = ctl_reg,
+            .reg = val_reg,
+        },
+    });
 }
 
 fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize {
@@ -652,13 +652,8 @@ fn findLabelAbsolute(self: *Self, parser: *Parser, name: []const u8) Error!usize
     }
 
     const key = name[1..];
-    // if (!self.labels.contains(key)) {
-    //     return parser.err("Label \"{s}\" does not exist", .{key});
-    // }
-
     return self.labels.get(key) orelse {
         return parser.err("Label \"{s}\" does not exist", .{key});
-        // return parser.err("Label \"{s}\" exists, but has no defined address", .{key});
     };
 }
 

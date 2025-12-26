@@ -720,17 +720,17 @@
     ],
     "description": "Register 30"
   },
-  "Register rSP": {
-    "prefix": "rSP",
+  "Register rsp": {
+    "prefix": "rsp",
     "body": [
-      "rSP"
+      "rsp"
     ],
     "description": "Stack Register"
   },
-  "Register rZ": {
+  "Register rz": {
     "prefix": "rz",
     "body": [
-      "rZ"
+      "rz"
     ],
     "description": "Zero register"
   },

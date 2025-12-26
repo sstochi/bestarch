@@ -9,24 +9,25 @@ v_blank:
 _start:
     aui.pc	    r0, ._xhwi_handler
     ctl.w	    xhwi, r0
-    aui.pc	    r0, ._xswi_handler
-    ctl.w	    xswi, r0
 
 _loop:
-    # game logic here
+    # Step 1 -- game logic
 
-_wait_for_vblank:
+    # Step 2 -- wait for vblank
     aui.pc	    r0, .v_blank
+_wait_for_vblank:
     ldr.u8	    r1, r0
-    bra.eq	    rZ, r1, ._wait_for_vblank
+    bra.eq	    rz, r1, ._wait_for_vblank # .v_blank != 0 to continue
+    str.i8      rz, r0
 
-    jmp         rZ, ._loop
+    # Step 4 -- copying graphics
+    #   Graphics is copied to the hardcoded fb memory region 0x80000-0x8FFFF.
+
+    jmp         ._loop
 
 _xhwi_handler:
-    mov         r1, 1
     aui.pc	    r0, .v_blank
-    str.i8	    r1, r0
-    irq.ret
+    mov         r1, 1
+    str.i8	    r1, r0  # set .v_blank = 1
 
-_xswi_handler:
     irq.ret

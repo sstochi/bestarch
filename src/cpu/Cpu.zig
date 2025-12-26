@@ -61,26 +61,26 @@ pub fn irq(self: *Self) !void {
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
-    const sp = self.get(.rSP, u64) -% @sizeOf(I);
+    const sp = self.get(.rsp, u64) -% @sizeOf(I);
     try self.bus.store(sp, I, value);
-    self.set(.rSP, u64, sp);
+    self.set(.rsp, u64, sp);
 }
 
 pub fn pop(self: *Self, comptime I: type) !I {
-    const sp = self.get(.rSP, u64);
+    const sp = self.get(.rsp, u64);
     const value = try self.bus.load(sp, I);
-    self.set(.rSP, u64, sp +% @sizeOf(I));
+    self.set(.rsp, u64, sp +% @sizeOf(I));
     return value;
 }
 
 pub fn set(self: *Self, r: Reg, comptime T: type, value: T) void {
-    if (r == .rZ) return;
+    if (r == .rz) return;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     self.r[@intFromEnum(r)] = @bitCast(@as(i64, @as(I, @bitCast(value))));
 }
 
 pub fn get(self: *const Self, r: Reg, comptime T: type) T {
-    if (r == .rZ) return 0;
+    if (r == .rz) return 0;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     return @bitCast(@as(I, @truncate(@as(i64, @bitCast(self.r[@intFromEnum(r)])))));
 }
