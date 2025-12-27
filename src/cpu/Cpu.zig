@@ -139,8 +139,7 @@ fn stallMemoryAccess(self: *Self, addr: u64, budget: u8) bool {
     const diff = @abs(self.last_mem_access - saddr);
 
     if (diff > l1_cache_size) { // "cache miss"
-        const cost = 12 +
-            @as(u8, @intFromBool(diff > l2_cache_size)) * 200; // if outside l2, then penalty is larger
+        const cost = 12 + @as(u8, @intFromBool(diff > l2_cache_size)) * 200; // if outside l2, then penalty
         if (self.stallForBudget(budget + cost)) {
             return true;
         }
