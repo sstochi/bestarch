@@ -28,7 +28,7 @@ const l2_cache_size = 4096;
 
 bus: *Bus = undefined,
 pc: u64,
-cycle: u8 = 0,
+cycle: u16 = 0,
 last_mem_access: i64 = 0,
 instr: Inst = @bitCast(@as(u32, 0)),
 r: [register_count]u64 = .{0} ** register_count,
@@ -47,10 +47,10 @@ pub fn clock(self: *Self) !void {
         },
 
         // decode
-        1 => _ = {},
+        1 => {},
 
         // execute
-        else => blk: {
+        else => {
             switch (self.instr.unknown.group) {
                 .move => try self.groupMove(&self.instr),
                 .process => try self.groupProcess(&self.instr),
@@ -63,11 +63,6 @@ pub fn clock(self: *Self) !void {
                 .ctl => try self.groupCtl(&self.instr.ctl),
                 .irq => try self.groupIrq(&self.instr.irq),
             }
-
-            // stall next instruction
-            if (self.stallMemoryAccess(self.pc, 0)) {
-                break :blk;
-            }
         },
     }
 
@@ -77,6 +72,7 @@ pub fn clock(self: *Self) !void {
 pub fn irq(self: *Self) !void {
     try self.pushState();
     self.pc = self.getCtl(.xhwi);
+    self.cycle = 0;
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
@@ -89,6 +85,7 @@ pub fn pop(self: *Self, comptime I: type) !I {
     const sp = self.get(.rsp, u64);
     const value = try self.bus.load(sp, I);
     self.set(.rsp, u64, sp +% @sizeOf(I));
+
     return value;
 }
 
@@ -126,21 +123,21 @@ fn popState(self: *Self) !void {
     self.pc = try self.pop(u64);
 }
 
-fn stallForBudget(self: *Self, budget: u8) bool {
+fn stallForBudget(self: *Self, budget: u16) bool {
     if (self.cycle < budget + 1) {
         return true;
     }
 
-    self.cycle = 0;
+    self.cycle = std.math.maxInt(u16);
     return false;
 }
 
-fn stallMemoryAccess(self: *Self, addr: u64, budget: u8) bool {
+fn stallMemoryAccess(self: *Self, addr: u64, budget: u16) bool {
     const saddr: i64 = @bitCast(addr);
     const diff = @abs(self.last_mem_access - saddr);
 
-    const cost = 4 + @as(u8, @intFromBool(diff > l2_cache_size)) * 16 +
-        @as(u8, @intFromBool(diff > l2_cache_size)) * 228;
+    const cost = 4 + @as(u16, @intFromBool(diff > l2_cache_size)) * 16 +
+        @as(u16, @intFromBool(diff > l2_cache_size)) * 228;
 
     if (self.stallForBudget(budget + cost)) {
         return true;
@@ -406,11 +403,19 @@ fn groupBranch(self: *Self, data: *const InstBranch) !void {
 }
 
 fn groupJumpRel(self: *Self, data: *const InstJumpRel) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
+
     self.set(data.link, u64, self.pc);
     self.pc +%= @bitCast(@as(i64, data.offset) << 2);
 }
 
 fn groupJumpReg(self: *Self, data: *const InstJumpReg) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
+
     self.set(data.link, u64, self.pc);
     self.pc = self.get(data.base, u64) +% @as(u64, @bitCast(@as(i64, data.offset)));
 }
@@ -432,13 +437,16 @@ fn groupIrq(self: *Self, data: *const InstIrq) !void {
             if (self.stallMemoryAccess(self.get(.rsp, u64), register_count * 2)) {
                 return;
             }
-
             try self.popState();
         },
     }
 }
 
 fn groupCtl(self: *Self, data: *const InstCtl) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
+
     switch (data.mode) {
         .write => self.setCtl(data.target, self.get(data.reg, u64)),
         .read => self.set(data.reg, u64, self.getCtl(data.target)),

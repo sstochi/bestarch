@@ -111,17 +111,21 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
                 const key = name[0 .. name.len - 1];
                 const entry = try self.labels.getOrPut(self.allocator, key);
-                if (entry.found_existing) return parser.err("Found existing label", .{});
+
+                if (entry.found_existing) {
+                    return parser.err("Found existing label", .{});
+                }
+
                 try self.pending_labels.append(self.allocator, key);
             },
 
             .keyword => |keyword| {
                 size = switch (keyword) {
-                    .@".i8", .@".i16", .@".i32", .@".i64" => size,
+                    .@".i8", .@".i16", .@".i32", .@".i64", .@".zalloc" => size,
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 
-                self.resolveLabels(binary_size);
+                self.resolveLabels(size);
 
                 // increment by size
                 size += switch (keyword) {
