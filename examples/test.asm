@@ -1,10 +1,10 @@
 v_blank:
-    .i8	    0x00
-    .i64    0x696969
-    .i64    0x323232
-    .i64    0x161616
-    .i64    0x080808
-    .zalloc  48
+    .i8	        0x00
+    .i64        0x696969
+    .i64        0x323232
+    .i64        0x161616
+    .i64        0x080808
+    .allocz     0x20
 
 _start:
     aui.pc	    r0, ._xhwi_handler

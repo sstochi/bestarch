@@ -10,7 +10,7 @@ pub const Keyword = enum(u8) {
     @".i16",
     @".i32",
     @".i64",
-    @".zalloc",
+    @".allocz",
 
     nop,
     mov,

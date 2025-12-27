@@ -136,7 +136,7 @@ fn stallMemoryAccess(self: *Self, addr: u64, budget: u16) bool {
     const saddr: i64 = @bitCast(addr);
     const diff = @abs(self.last_mem_access - saddr);
 
-    const cost = 4 + @as(u16, @intFromBool(diff > l2_cache_size)) * 16 +
+    const cost = 4 + @as(u16, @intFromBool(diff > l1_cache_size)) * 16 +
         @as(u16, @intFromBool(diff > l2_cache_size)) * 228;
 
     if (self.stallForBudget(budget + cost)) {

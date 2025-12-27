@@ -111,7 +111,6 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
                 const key = name[0 .. name.len - 1];
                 const entry = try self.labels.getOrPut(self.allocator, key);
-
                 if (entry.found_existing) {
                     return parser.err("Found existing label", .{});
                 }
@@ -121,7 +120,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
             .keyword => |keyword| {
                 size = switch (keyword) {
-                    .@".i8", .@".i16", .@".i32", .@".i64", .@".zalloc" => size,
+                    .@".i8", .@".i16", .@".i32", .@".i64", .@".allocz" => size,
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 
@@ -133,7 +132,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     .@".i16" => @sizeOf(i16),
                     .@".i32" => @sizeOf(i32),
                     .@".i64" => @sizeOf(i64),
-                    .@".zalloc" => try parser.integer(u64),
+                    .@".allocz" => try parser.integer(u64),
                     else => @sizeOf(Inst),
                 };
             },
@@ -162,7 +161,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@".i32" => try parseConstant(self, parser, i32),
                 .@".i64" => try parseConstant(self, parser, i64),
 
-                .@".zalloc" => try self.binary.appendNTimes(
+                .@".allocz" => try self.binary.appendNTimes(
                     self.allocator,
                     0,
                     try parser.integer(u64),
