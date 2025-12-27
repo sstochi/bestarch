@@ -23,36 +23,53 @@ const InstIrq = isa.InstIrq;
 const Self = @This();
 const register_count = 1 << @bitSizeOf(Reg);
 const control_register_count = 1 << @bitSizeOf(CtlReg);
+const cache_size = 1024;
 
-bus: *Bus,
+bus: *Bus = undefined,
+pc: u64,
+cycle: u8 = 0,
+last_mem_access: i64 = 0,
+instr: Inst = @bitCast(@as(u32, 0)),
 r: [register_count]u64 = .{0} ** register_count,
 crs: [control_register_count]u64 = .{0} ** control_register_count,
-pc: u64,
 
 pub fn create(pc: u64) Self {
-    return Self{
-        .bus = undefined,
-        .pc = pc,
-    };
+    return Self{ .pc = pc };
 }
 
 pub fn clock(self: *Self) !void {
-    const instr = try self.bus.load(self.pc, Inst);
-    self.pc += @sizeOf(Inst);
+    switch (self.cycle) {
+        // fetch
+        0 => {
+            if (self.stallMemoryAccess(self.pc, 0)) {
+                return;
+            }
 
-    switch (instr.unknown.group) {
-        .move => try self.groupMove(&instr),
-        .process => try self.groupProcess(&instr),
-        .auipc => try self.groupAuiPC(&instr.addpc),
-        .memory => try self.groupMemory(&instr.memory),
-        .memory_pair => try self.groupMemoryPair(&instr.memory_pair),
-        // .memory_multi => try self.groupMemoryMulti(&instr.memory_multi),
-        .branch => try self.groupBranch(&instr.branch),
-        .jump_rel => try self.groupJumpRel(&instr.jump_rel),
-        .jump_reg => try self.groupJumpReg(&instr.jump_reg),
-        .ctl => try self.groupCtl(&instr.ctl),
-        .irq => try self.groupIrq(&instr.irq),
+            self.instr = try self.bus.load(self.pc, Inst);
+            self.pc += @sizeOf(Inst);
+        },
+
+        // decode
+        1 => _ = {},
+
+        // execute
+        else => {
+            switch (self.instr.unknown.group) {
+                .move => try self.groupMove(&self.instr),
+                .process => try self.groupProcess(&self.instr),
+                .auipc => try self.groupAuiPC(&self.instr.addpc),
+                .memory => try self.groupMemory(&self.instr.memory),
+                .memory_pair => try self.groupMemoryPair(&self.instr.memory_pair),
+                .branch => try self.groupBranch(&self.instr.branch),
+                .jump_rel => try self.groupJumpRel(&self.instr.jump_rel),
+                .jump_reg => try self.groupJumpReg(&self.instr.jump_reg),
+                .ctl => try self.groupCtl(&self.instr.ctl),
+                .irq => try self.groupIrq(&self.instr.irq),
+            }
+        },
     }
+
+    self.cycle +%= 1;
 }
 
 pub fn irq(self: *Self) !void {
@@ -107,6 +124,30 @@ fn popState(self: *Self) !void {
     self.pc = try self.pop(u64);
 }
 
+fn stallForBudget(self: *Self, budget: u8) bool {
+    if (self.cycle < budget + 1) {
+        return true;
+    }
+
+    self.cycle = 0;
+    return false;
+}
+
+fn stallMemoryAccess(self: *Self, addr: u64, budget: u8) bool {
+    const saddr: i64 = @bitCast(addr);
+    const diff = @abs(self.last_mem_access - saddr);
+
+    if (diff > cache_size) { // "cache miss"
+        if (self.stallForBudget(budget + 12)) {
+            return true;
+        }
+        self.last_mem_access = saddr;
+        return false;
+    }
+
+    return self.stallForBudget(budget + 2);
+}
+
 fn groupMove(self: *Self, data: *const Inst) !void {
     return switch (data.move.mode) {
         .imm => self.groupMoveImm(&data.move_imm),
@@ -126,12 +167,22 @@ fn groupMoveImmShift(self: *Self, data: *const InstMoveImmShift) !void {
 
 fn groupMoveReg(self: *Self, data: *const InstMoveReg) !void {
     const value = self.get(data.value, u64);
-    const sar: u64 = @bitCast(@as(i64, @bitCast(value)) << data.left_amount);
-    const slr: u64 = value << data.left_amount;
-    self.set(data.dst, u64, if (data.signed) slr else sar);
+    self.set(data.dst, u64, if (data.signed)
+        value << data.left_amount
+    else
+        @bitCast(@as(i64, @bitCast(value)) << data.left_amount));
 }
 
 fn groupMoveCvt(self: *Self, data: *const InstMoveCvt) !void {
+    const stall = switch (data.code) {
+        .fmov_f32_f64, .fmov_f64_f32 => self.stallForBudget(1),
+        else => self.stallForBudget(4),
+    };
+
+    if (stall) {
+        return;
+    }
+
     switch (data.code) {
         .fcvt_u32_f32 => self.set(data.dst, f32, @floatFromInt(self.get(data.src, u32))),
         .fcvt_s32_f32 => self.set(data.dst, f32, @floatFromInt(self.get(data.src, i32))),
@@ -149,12 +200,23 @@ fn groupMoveCvt(self: *Self, data: *const InstMoveCvt) !void {
         .fcvt_f64_s32 => self.set(data.dst, i32, @intFromFloat(self.get(data.src, f64))),
         .fcvt_f64_u64 => self.set(data.dst, u64, @intFromFloat(self.get(data.src, f64))),
         .fcvt_f64_s64 => self.set(data.dst, i64, @intFromFloat(self.get(data.src, f64))),
+
         .fmov_f32_f64 => self.set(data.dst, f32, @floatCast(self.get(data.src, f64))),
         .fmov_f64_f32 => self.set(data.dst, f64, @floatCast(self.get(data.src, f32))),
     }
 }
 
 fn groupProcess(self: *Self, inst: *const Inst) !void {
+    const stall = switch (inst.process.code) {
+        .mul => self.stallForBudget(4), // on modern cpus ~4 cycles
+        .divs, .divu, .mods, .modu => self.stallForBudget(if (inst.process.size == .m64) 16 else 8), // on modern cpus 8-16 avg
+        else => self.stallForBudget(2),
+    };
+
+    if (stall) {
+        return;
+    }
+
     const lhs_raw: u64 = self.get(inst.process.lhs, u64);
     const rhs_raw: u64 = switch (inst.process.rhs_mode) {
         .imm => @bitCast(@as(i64, inst.process_imm.imm)),
@@ -208,6 +270,10 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
         addr +%= offset;
     }
 
+    if (self.stallMemoryAccess(addr, 1)) {
+        return;
+    }
+
     if (data.store) {
         const value = self.get(data.value, u64);
         switch (data.mode) {
@@ -234,17 +300,27 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
         }
     }
 
-    if (data.post_inc) addr +%= offset;
+    if (data.post_inc) {
+        addr +%= offset;
+    }
 }
 
 fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
     var addr = self.get(data.base, u64);
     const offset = @as(u64, @bitCast(@as(i64, data.offset)));
-    if (!data.post_inc) addr +%= offset;
+
+    if (!data.post_inc) {
+        addr +%= offset;
+    }
+
+    if (self.stallMemoryAccess(addr, 1)) {
+        return;
+    }
 
     if (data.store) {
-        const value_a = self.get(data.value_a, u64);
-        const value_b = self.get(data.value_b, u64);
+        const value_a = self.get(data.dst_a, u64);
+        const value_b = self.get(data.dst_b, u64);
+
         switch (data.mode) {
             .m8 => try self.bus.store(addr, [2]u8, .{ @truncate(value_a), @truncate(value_b) }),
             .m16 => try self.bus.store(addr, [2]u16, .{ @truncate(value_a), @truncate(value_b) }),
@@ -254,6 +330,7 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
     } else {
         var value_a: u64 = undefined;
         var value_b: u64 = undefined;
+
         if (data.signed) {
             switch (data.mode) {
                 .m8 => {
@@ -276,37 +353,40 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
         } else {
             switch (data.mode) {
                 .m8 => {
-                    value_a = try self.bus.load(addr, u8);
-                    value_b = try self.bus.load(addr + @sizeOf(u8), u8);
-                    addr +%= 2 * @sizeOf(u8);
+                    const a, const b = try self.bus.load(addr, [2]i8);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
                 },
                 .m16 => {
-                    value_a = try self.bus.load(addr, u16);
-                    value_b = try self.bus.load(addr + @sizeOf(u8), u16);
+                    const a, const b = try self.bus.load(addr, [2]i16);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
                 },
                 .m32 => {
-                    value_a = try self.bus.load(addr, u32);
-                    value_b = try self.bus.load(addr + @sizeOf(u8), u32);
+                    const a, const b = try self.bus.load(addr, [2]i32);
+                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
                 },
                 .m64 => {
-                    value_a = try self.bus.load(addr, u64);
-                    value_b = try self.bus.load(addr + @sizeOf(u8), u64);
+                    const a, const b = try self.bus.load(addr, [2]i64);
+                    value_a, value_b = .{ @bitCast(a), @bitCast(b) };
                 },
             }
         }
-        self.set(data.value_a, u64, value_a);
-        self.set(data.value_b, u64, value_b);
+
+        self.set(data.dst_a, u64, value_a);
+        self.set(data.dst_b, u64, value_b);
     }
 
     if (data.post_inc) {
         addr +%= offset;
     }
 
-    // write back
     self.set(data.base, u64, addr);
 }
 
 fn groupBranch(self: *Self, data: *const InstBranch) !void {
+    if (self.stallForBudget(2)) {
+        return;
+    }
+
     var lhs = self.get(data.lhs, u64);
     var rhs = self.get(data.rhs, u64);
 
@@ -317,6 +397,7 @@ fn groupBranch(self: *Self, data: *const InstBranch) !void {
     const lt = lhs < rhs;
     const eq = lhs == rhs;
     const result = if (data.flags.compare) lt else eq;
+
     if (result != data.flags.flip) {
         self.pc +%= @bitCast(@as(i64, data.offset) << 2);
     }
@@ -333,14 +414,25 @@ fn groupJumpReg(self: *Self, data: *const InstJumpReg) !void {
 }
 
 fn groupIrq(self: *Self, data: *const InstIrq) !void {
+    // memory read (2 cycles) * register count + pc read
     switch (data.mode) {
         .swi => {
+            if (self.stallMemoryAccess(self.get(.rsp, u64), register_count * 2 + 1)) {
+                return;
+            }
+
             try self.pushState();
             self.pc = self.getCtl(.xswi);
             self.set(.r0, u64, data.code);
         },
 
-        .ret => try self.popState(),
+        .ret => {
+            if (self.stallMemoryAccess(self.get(.rsp, u64), register_count * 2)) {
+                return;
+            }
+
+            try self.popState();
+        },
     }
 }
 

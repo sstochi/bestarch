@@ -456,8 +456,8 @@ fn parsePushPop(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void
     };
 
     const offset: i13 = switch (keyword) {
-        .psh => -8,
-        .pop => 8,
+        .psh => -@sizeOf(u64),
+        .pop => @sizeOf(u64),
         else => unreachable,
     };
 
@@ -487,7 +487,6 @@ fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
 
     if (try parser.expect(.@"+")) |_| {
         offset = try parser.integer(i8);
-
         if (try parser.expect(.@"!")) |_| {
             post_inc = true;
         }
@@ -520,8 +519,8 @@ fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
             .signed = signed,
             .store = store,
             .post_inc = post_inc,
-            .value_a = value_a,
-            .value_b = value_b,
+            .dst_a = value_a,
+            .dst_b = value_b,
             .base = base,
             .offset = offset,
         },

@@ -244,8 +244,8 @@ pub const InstMemoryPair = packed struct(u32) {
     store: bool,
     post_inc: bool,
 
-    value_a: Reg,
-    value_b: Reg,
+    dst_a: Reg,
+    dst_b: Reg,
     base: Reg,
     offset: i8,
 };
