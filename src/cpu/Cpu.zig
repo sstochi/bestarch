@@ -42,10 +42,6 @@ pub fn clock(self: *Self) !void {
     switch (self.cycle) {
         // fetch
         0 => {
-            if (self.stallMemoryAccess(self.pc, 0)) {
-                return;
-            }
-
             self.instr = try self.bus.load(self.pc, Inst);
             self.pc += @sizeOf(Inst);
         },
@@ -54,7 +50,7 @@ pub fn clock(self: *Self) !void {
         1 => _ = {},
 
         // execute
-        else => {
+        else => blk: {
             switch (self.instr.unknown.group) {
                 .move => try self.groupMove(&self.instr),
                 .process => try self.groupProcess(&self.instr),
@@ -66,6 +62,11 @@ pub fn clock(self: *Self) !void {
                 .jump_reg => try self.groupJumpReg(&self.instr.jump_reg),
                 .ctl => try self.groupCtl(&self.instr.ctl),
                 .irq => try self.groupIrq(&self.instr.irq),
+            }
+
+            // stall next instruction
+            if (self.stallMemoryAccess(self.pc, 0)) {
+                break :blk;
             }
         },
     }
@@ -138,16 +139,15 @@ fn stallMemoryAccess(self: *Self, addr: u64, budget: u8) bool {
     const saddr: i64 = @bitCast(addr);
     const diff = @abs(self.last_mem_access - saddr);
 
-    if (diff > l1_cache_size) { // "cache miss"
-        const cost = 12 + @as(u8, @intFromBool(diff > l2_cache_size)) * 200; // if outside l2, then penalty
-        if (self.stallForBudget(budget + cost)) {
-            return true;
-        }
-        self.last_mem_access = saddr;
-        return false;
+    const cost = 4 + @as(u8, @intFromBool(diff > l2_cache_size)) * 16 +
+        @as(u8, @intFromBool(diff > l2_cache_size)) * 228;
+
+    if (self.stallForBudget(budget + cost)) {
+        return true;
     }
 
-    return self.stallForBudget(budget + 2);
+    self.last_mem_access = saddr;
+    return false;
 }
 
 fn groupMove(self: *Self, data: *const Inst) !void {
