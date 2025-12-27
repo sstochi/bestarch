@@ -23,7 +23,8 @@ const InstIrq = isa.InstIrq;
 const Self = @This();
 const register_count = 1 << @bitSizeOf(Reg);
 const control_register_count = 1 << @bitSizeOf(CtlReg);
-const cache_size = 1024;
+const l1_cache_size = 1024;
+const l2_cache_size = 4096;
 
 bus: *Bus = undefined,
 pc: u64,
@@ -137,8 +138,9 @@ fn stallMemoryAccess(self: *Self, addr: u64, budget: u8) bool {
     const saddr: i64 = @bitCast(addr);
     const diff = @abs(self.last_mem_access - saddr);
 
-    if (diff > cache_size) { // "cache miss"
-        if (self.stallForBudget(budget + 12)) {
+    if (diff > l1_cache_size) { // "cache miss"
+        const cost = 12 + @intFromBool(diff > l2_cache_size) * 200; // if outside l2, then penalty is larger
+        if (self.stallForBudget(budget + cost)) {
             return true;
         }
         self.last_mem_access = saddr;
@@ -209,8 +211,8 @@ fn groupMoveCvt(self: *Self, data: *const InstMoveCvt) !void {
 fn groupProcess(self: *Self, inst: *const Inst) !void {
     const stall = switch (inst.process.code) {
         .mul => self.stallForBudget(4), // on modern cpus ~4 cycles
-        .divs, .divu, .mods, .modu => self.stallForBudget(if (inst.process.size == .m64) 16 else 8), // on modern cpus 8-16 avg
-        else => self.stallForBudget(2),
+        .divs, .divu, .mods, .modu => self.stallForBudget(if (inst.process.size == .m64) 32 else 16), // on modern cpus 8-16 avg
+        else => self.stallForBudget(1),
     };
 
     if (stall) {
