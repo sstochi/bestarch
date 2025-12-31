@@ -76,27 +76,27 @@ pub fn irq(self: *Self) !void {
 }
 
 pub fn push(self: *Self, comptime I: type, value: I) !void {
-    const sp = self.get(.rsp, u64) -% @sizeOf(I);
+    const sp = self.get(.sp, u64) -% @sizeOf(I);
     try self.bus.store(sp, I, value);
-    self.set(.rsp, u64, sp);
+    self.set(.sp, u64, sp);
 }
 
 pub fn pop(self: *Self, comptime I: type) !I {
-    const sp = self.get(.rsp, u64);
+    const sp = self.get(.sp, u64);
     const value = try self.bus.load(sp, I);
-    self.set(.rsp, u64, sp +% @sizeOf(I));
+    self.set(.sp, u64, sp +% @sizeOf(I));
 
     return value;
 }
 
 pub fn set(self: *Self, r: Reg, comptime T: type, value: T) void {
-    if (r == .rz) return;
+    if (r == .zr) return;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     self.r[@intFromEnum(r)] = @bitCast(@as(i64, @as(I, @bitCast(value))));
 }
 
 pub fn get(self: *const Self, r: Reg, comptime T: type) T {
-    if (r == .rz) return 0;
+    if (r == .zr) return 0;
     const I = @Type(.{ .int = .{ .signedness = .signed, .bits = @bitSizeOf(T) } });
     return @bitCast(@as(I, @truncate(@as(i64, @bitCast(self.r[@intFromEnum(r)])))));
 }
@@ -239,8 +239,8 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
         .@"or" => lhs | rhs,
         .xor => lhs ^ rhs,
 
-        .lsl => lhs << @intCast(rhs),
-        .lsr => lhs >> @intCast(rhs),
+        .shl => lhs << @intCast(rhs),
+        .shr => lhs >> @intCast(rhs),
         .asr => @bitCast(@as(I, @bitCast(lhs)) >> @intCast(@as(I, @bitCast(rhs)))),
 
         .add => lhs +% rhs,
@@ -262,7 +262,7 @@ fn groupAuiPC(self: *Self, data: *const InstAuiPC) !void {
 }
 
 fn groupMemory(self: *Self, data: *const InstMemory) !void {
-    var addr: u64 = @bitCast(self.get(data.base, i64) +% @as(i64, data.offset));
+    var addr: u64 = @bitCast(self.get(data.base, i64));
 
     const offset = @as(u64, @bitCast(@as(i64, data.offset)));
     if (!data.post_inc) {
@@ -302,6 +302,8 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
     if (data.post_inc) {
         addr +%= offset;
     }
+
+    self.set(data.base, u64, addr);
 }
 
 fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
@@ -424,7 +426,7 @@ fn groupIrq(self: *Self, data: *const InstIrq) !void {
     // memory read (2 cycles) * register count + pc read
     switch (data.mode) {
         .swi => {
-            if (self.stallMemoryAccess(self.get(.rsp, u64), register_count * 2 + 1)) {
+            if (self.stallMemoryAccess(self.get(.sp, u64), register_count * 2 + 1)) {
                 return;
             }
 
@@ -434,9 +436,10 @@ fn groupIrq(self: *Self, data: *const InstIrq) !void {
         },
 
         .ret => {
-            if (self.stallMemoryAccess(self.get(.rsp, u64), register_count * 2)) {
+            if (self.stallMemoryAccess(self.get(.sp, u64), register_count * 2)) {
                 return;
             }
+
             try self.popState();
         },
     }

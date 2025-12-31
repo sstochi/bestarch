@@ -22,6 +22,7 @@ pub const Error = error{
     OutOfMemory,
     NoSpaceLeft,
     ParseError,
+    FileNotFound,
 };
 
 allocator: std.mem.Allocator,
@@ -133,6 +134,11 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
                     .@".i32" => @sizeOf(i32),
                     .@".i64" => @sizeOf(i64),
                     .@".allocz" => try parser.integer(u64),
+                    .@".embed" => blk: {
+                        const literal = try parser.literal();
+                        const stat = std.fs.cwd().statFile(literal) catch return error.FileNotFound;
+                        break :blk stat.size;
+                    },
                     else => @sizeOf(Inst),
                 };
             },
@@ -167,10 +173,21 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                     try parser.integer(u64),
                 ),
 
+                .@".embed" => {
+                    const literal = try parser.literal();
+                    const cwd = std.fs.cwd();
+
+                    const stat = cwd.statFile(literal) catch return error.FileNotFound;
+                    const start = self.binary.items.len;
+
+                    _ = try self.binary.addManyAsSlice(self.allocator, stat.size);
+                    _ = cwd.readFile(literal, self.binary.items[start..]) catch return error.FileNotFound;
+                },
+
                 // nop
                 .nop => try self.inst(Inst{
                     .move_imm = .{
-                        .dst = .rz,
+                        .dst = .zr,
                         .mode = .imm,
                         .imm = 0,
                     },
@@ -185,9 +202,9 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"and.i32",
                 .@"or.i32",
                 .@"xor.i32",
-                .@"shl.i32",
-                .@"shr.u32",
-                .@"shr.s32",
+                .@"lsl.i32",
+                .@"lsr.u32",
+                .@"lsr.s32",
                 .@"add.i32",
                 .@"sub.i32",
                 .@"mul.i32",
@@ -198,9 +215,9 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"and.i64",
                 .@"or.i64",
                 .@"xor.i64",
-                .@"shl.i64",
-                .@"shr.u64",
-                .@"shr.s64",
+                .@"lsl.i64",
+                .@"lsr.u64",
+                .@"lsr.s64",
                 .@"add.i64",
                 .@"sub.i64",
                 .@"mul.i64",
@@ -287,13 +304,75 @@ fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
     const dst_reg = try parser.register("dst");
     try parser.operator(.@",");
 
-    try self.inst(Inst{
-        .move_imm = .{
-            .dst = dst_reg,
-            .mode = .imm,
-            .imm = try parser.integer(i21),
+    const tok = try parser.token();
+    switch (tok.data) {
+        .integer => |value_imm| {
+            const value = try parser.intCast(i21, value_imm);
+            const op_tok = try parser.peek();
+
+            switch (op_tok.data) {
+                .shift => |t| {
+                    switch (t) {
+                        .lsl => {
+                            parser.skip(); // consume token
+
+                            const amount = try parser.integer(u6);
+                            try self.inst(Inst{
+                                .move_imm_shift = .{
+                                    .dst = dst_reg,
+                                    .value = try parser.intCast(i15, value),
+                                    .left_amount = amount,
+                                },
+                            });
+                        },
+
+                        else => return parser.err("Move immediate only supports logical shift left operation.", .{}),
+                    }
+                },
+
+                .eof => {
+                    try self.inst(Inst{
+                        .move_imm = .{
+                            .dst = dst_reg,
+                            .imm = value,
+                        },
+                    });
+                },
+
+                else => return parser.err("Expected lsl, found {t}", .{tok.data}),
+            }
         },
-    });
+        .reg => |rhs_reg| {
+            var left_amount: u6 = 0;
+            var right_amount: u6 = 0;
+            var signed: bool = false;
+
+            if (try parser.expect(.shift)) |t| {
+                left_amount = try parser.integer(u6);
+
+                switch (t) {
+                    .lsr, .asr => {
+                        parser.skip(); // consume token
+
+                        signed = t == .asr;
+                        right_amount = try parser.integer(u6);
+                    },
+                    else => return parser.err("Expected logical shift left or arithmetic shift right, found {t}", .{tok.data}),
+                }
+
+                try self.inst(Inst{
+                    .move_reg = .{
+                        .dst = dst_reg,
+                        .value = rhs_reg,
+                        .left_amount = left_amount,
+                        .signed = signed,
+                        .right_amount = right_amount,
+                    },
+                });
+            }
+        },
+        else => return parser.err("Unexpected {t}", .{tok.data}),
+    }
 }
 
 fn parseAddPCInstr(self: *Self, parser: *Parser) Error!void {
@@ -327,9 +406,9 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         .@"and.i32", .@"and.i64" => .@"and",
         .@"or.i32", .@"or.i64" => .@"or",
         .@"xor.i32", .@"xor.i64" => .xor,
-        .@"shl.i32", .@"shl.i64" => .lsl,
-        .@"shr.u32", .@"shr.u64" => .lsr,
-        .@"shr.s32", .@"shr.s64" => .asr,
+        .@"lsl.i32", .@"lsl.i64" => .shl,
+        .@"lsr.u32", .@"lsr.u64" => .shr,
+        .@"lsr.s32", .@"lsr.s64" => .asr,
         .@"add.i32", .@"add.i64" => .add,
         .@"sub.i32", .@"sub.i64" => .sub,
         .@"mul.i32", .@"mul.i64" => .mul,
@@ -344,9 +423,9 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         .@"and.i32",
         .@"or.i32",
         .@"xor.i32",
-        .@"shl.i32",
-        .@"shr.u32",
-        .@"shr.s32",
+        .@"lsl.i32",
+        .@"lsr.u32",
+        .@"lsr.s32",
         .@"add.i32",
         .@"sub.i32",
         .@"mul.i32",
@@ -375,20 +454,14 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
             var amount: u6 = 0;
             var shift: ShiftType = .lsl;
 
-            const op_tok = try parser.peek();
-            switch (op_tok.data) {
-                .@"<<", .@">>" => {
-                    parser.skip(); // consume token
+            if (try parser.expect(.shift)) |t| {
+                shift = switch (t) {
+                    .lsl => .lsl,
+                    .lsr => .lsr,
+                    else => return parser.err("Process instruction group doesn't support arithmetic shift right operation.", .{}),
+                };
 
-                    shift = switch (op_tok.data) {
-                        .@"<<" => .lsl,
-                        .@">>" => .lsr,
-                        else => unreachable,
-                    };
-
-                    amount = try parser.integer(u6);
-                },
-                else => {},
+                amount = try parser.integer(u6);
             }
 
             try self.inst(Inst{
@@ -413,8 +486,13 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
     const base_reg = try parser.register("base");
 
     var offset: i13 = 0;
+    var post_inc: bool = false;
+
     if (try parser.expect(.@"+")) |_| {
         offset = try parser.integer(i13);
+        if (try parser.expect(.@"!")) |_| {
+            post_inc = true;
+        }
     }
 
     const mode: MemorySize2 = switch (Keyword) {
@@ -440,7 +518,7 @@ fn parseMemoryInstr(self: *Self, parser: *Parser, Keyword: Token.Keyword) Error!
             .mode = mode,
             .signed = signed,
             .store = store,
-            .post_inc = false,
+            .post_inc = post_inc,
 
             .value = value_reg,
             .base = base_reg,
@@ -471,7 +549,7 @@ fn parsePushPop(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!void
             .store = store,
             .post_inc = store,
             .value = value,
-            .base = .rsp,
+            .base = .sp,
             .offset = offset,
         },
     });
@@ -571,12 +649,8 @@ fn parseBranchInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!
 }
 
 fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
-    var link_reg = Reg.rz;
-
-    if (try parser.expect(.reg)) |reg| {
-        link_reg = reg;
-        try parser.operator(.@",");
-    }
+    const link_reg = try parser.register("link");
+    try parser.operator(.@",");
 
     const tok = try parser.token();
     switch (tok.data) {
@@ -595,11 +669,16 @@ fn parseJumpInstr(self: *Self, parser: *Parser) Error!void {
         },
 
         .reg => |base| {
+            var offset: i18 = 0;
+            if (try parser.expect(.@"+")) |_| {
+                offset = try parser.integer(i18);
+            }
+
             try self.inst(Inst{
                 .jump_reg = .{
                     .link = link_reg,
                     .base = base,
-                    .offset = try parser.integer(i18),
+                    .offset = offset,
                 },
             });
         },

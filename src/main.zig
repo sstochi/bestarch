@@ -16,25 +16,22 @@ pub fn main() !void {
     try as.assemble(source);
 
     const start = as.labels.get("_start").?;
-    std.debug.print("{X}\n", .{as.binary.items});
+    // std.debug.print("{X}\n", .{as.binary.items});
 
     var bus = Bus.create();
-    var memory = try Memory.create(allocator, 2048);
+    var memory = try Memory.create(allocator, as.binary.items.len + 2048);
     try bus.attach(&memory);
 
     var cpu = Cpu.create(start);
-    cpu.set(.rsp, u64, memory.raw.len);
+    cpu.set(.sp, u64, memory.raw.len);
     try bus.attach(&cpu);
 
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
-    var puis = std.time.milliTimestamp();
     while (true) {
         try cpu.clock();
-
-        if ((std.time.milliTimestamp() - puis) > 1000) {
-            try cpu.irq();
-            puis = std.time.milliTimestamp();
+        if (cpu.pc == as.labels.get("_fail").?) {
+            std.debug.print("decoded: {x}\n", .{cpu.get(.r3, u32)});
         }
     }
 }

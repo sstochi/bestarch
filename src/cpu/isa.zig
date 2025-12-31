@@ -30,8 +30,8 @@ pub const Reg = enum(u5) {
     r28,
     r29,
 
-    rsp, // stack pointer
-    rz, // zero register
+    sp, // stack pointer
+    zr, // zero register
 };
 
 pub const CtlReg = enum(u3) {
@@ -58,8 +58,8 @@ pub const ProcessCode = enum(u4) {
     @"or",
     xor,
 
-    lsl,
-    lsr,
+    shl,
+    shr,
     asr,
 
     add,

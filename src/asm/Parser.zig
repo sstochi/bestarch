@@ -39,6 +39,12 @@ pub fn operator(self: *Self, comptime kind: Token.Kind) Assembler.Error!void {
     };
 }
 
+pub fn literal(self: *Self) Assembler.Error![]const u8 {
+    return try self.expect(.literal) orelse {
+        return self.err("Expected string literal", .{});
+    };
+}
+
 pub fn checkLabel(self: *Self, name: []const u8) Assembler.Error![]const u8 {
     if (!std.mem.startsWith(u8, name, ".")) {
         return self.err("Expected a . before label name", .{});
@@ -97,6 +103,8 @@ pub fn token(self: *Self) Assembler.Error!Token {
                 }
                 continue;
             },
+
+            // tokens
             '_', '.', ':', 'a'...'z', 'A'...'Z' => {
                 while (true) {
                     const n = self.peekByte();
@@ -109,8 +117,25 @@ pub fn token(self: *Self) Assembler.Error!Token {
                 if (std.meta.stringToEnum(Reg, source)) |reg| break :b Token.Data{ .reg = reg };
                 if (std.meta.stringToEnum(CtlReg, source)) |ctl_reg| break :b Token.Data{ .ctl_reg = ctl_reg };
                 if (std.meta.stringToEnum(Token.Keyword, source)) |keyword| break :b Token.Data{ .keyword = keyword };
+                if (std.meta.stringToEnum(Token.Shift, source)) |shift| break :b Token.Data{ .shift = shift };
                 break :b Token.Data{ .ident = source };
             },
+
+            // literals
+            '"' => {
+                while (true) {
+                    switch (self.peekByte()) {
+                        '"' => break,
+                        '\x00' => return self.err("String literal is not closed properly", .{}),
+                        else => self.skipByte(),
+                    }
+                }
+
+                self.skipByte();
+                break :b Token.Data{ .literal = self.buf[start + 1 .. self.idx - 1] };
+            },
+
+            // numbers
             '-', '0'...'9' => {
                 const neg = c == '-';
 
@@ -153,8 +178,6 @@ pub fn token(self: *Self) Assembler.Error!Token {
             ',' => .@",",
             '+' => .@"+",
             '!' => .@"!",
-            '<' => if (self.takeByte('<')) .@"<<" else continue,
-            '>' => if (self.takeByte('>')) .@">>" else continue,
             '\x00' => .eof,
             else => return self.err("Unexpected token: {c}", .{c}),
         };

@@ -11,6 +11,7 @@ pub const Keyword = enum(u8) {
     @".i32",
     @".i64",
     @".allocz",
+    @".embed",
 
     nop,
     mov,
@@ -19,9 +20,9 @@ pub const Keyword = enum(u8) {
     @"and.i32",
     @"or.i32",
     @"xor.i32",
-    @"shl.i32",
-    @"shr.u32",
-    @"shr.s32",
+    @"lsl.i32",
+    @"lsr.u32",
+    @"lsr.s32",
     @"add.i32",
     @"sub.i32",
     @"mul.i32",
@@ -33,9 +34,9 @@ pub const Keyword = enum(u8) {
     @"and.i64",
     @"or.i64",
     @"xor.i64",
-    @"shl.i64",
-    @"shr.u64",
-    @"shr.s64",
+    @"lsl.i64",
+    @"lsr.u64",
+    @"lsr.s64",
     @"add.i64",
     @"sub.i64",
     @"mul.i64",
@@ -68,18 +69,6 @@ pub const Keyword = enum(u8) {
     @"str.i32",
     @"str.i64",
 
-    // @"ldm.u8",
-    // @"ldm.s8",
-    // @"ldm.u16",
-    // @"ldm.s16",
-    // @"ldm.u32",
-    // @"ldm.s32",
-    // @"ldm.i64",
-    // @"stm.i8",
-    // @"stm.i16",
-    // @"stm.i32",
-    // @"stm.i64",
-
     @"ldp.u8",
     @"ldp.s8",
     @"ldp.u16",
@@ -104,9 +93,16 @@ pub const Keyword = enum(u8) {
     @"irq.ret",
 };
 
+pub const Shift = enum {
+    lsl,
+    lsr,
+    asr,
+};
+
 pub const Data = union(enum) {
     // whitespace,
     ident: []const u8,
+    literal: []const u8,
     integer: i64,
 
     @":",
@@ -114,12 +110,11 @@ pub const Data = union(enum) {
     @",",
     @"+",
     @"!",
-    @"<<",
-    @">>",
 
     reg: Reg,
     ctl_reg: CtlReg,
     keyword: Keyword,
+    shift: Shift,
 
     eof,
 };
