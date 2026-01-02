@@ -44,6 +44,7 @@ pub fn clock(self: *Self) !void {
         0 => {
             self.instr = try self.bus.load(self.pc, Inst);
             self.pc += @sizeOf(Inst);
+            // std.debug.print("pc: {} {}\n", .{ self.pc - @sizeOf(Inst), self.instr.unknown.group });
         },
 
         // decode
@@ -157,14 +158,24 @@ fn groupMove(self: *Self, data: *const Inst) !void {
 }
 
 fn groupMoveImm(self: *Self, data: *const InstMoveImm) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
     self.set(data.dst, i64, data.imm);
 }
 
 fn groupMoveImmShift(self: *Self, data: *const InstMoveImmShift) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
     self.set(data.dst, i64, @as(i64, data.value) << data.left_amount);
 }
 
 fn groupMoveReg(self: *Self, data: *const InstMoveReg) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
+
     const value = self.get(data.value, u64);
     self.set(data.dst, u64, if (data.signed)
         value << data.left_amount
@@ -174,7 +185,7 @@ fn groupMoveReg(self: *Self, data: *const InstMoveReg) !void {
 
 fn groupMoveCvt(self: *Self, data: *const InstMoveCvt) !void {
     const stall = switch (data.code) {
-        .fmov_f32_f64, .fmov_f64_f32 => self.stallForBudget(1),
+        .fmov_f32_f64, .fmov_f64_f32 => self.stallForBudget(2),
         else => self.stallForBudget(4),
     };
 
@@ -250,6 +261,10 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
         .divs => @bitCast(@divTrunc(@as(I, @bitCast(lhs)), @as(I, @bitCast(rhs)))),
         .modu => @rem(lhs, rhs),
         .mods => @bitCast(@rem(@as(I, @bitCast(lhs)), @as(I, @bitCast(rhs)))),
+
+        .sltu => @intFromBool(lhs < rhs),
+        .slts => @intFromBool(@as(I, @bitCast(lhs)) < @as(I, @bitCast(rhs))),
+
         else => @panic("Invalid code"),
     };
 
@@ -257,6 +272,9 @@ fn groupProcessImpl(self: *Self, data: *const InstProcess, comptime U: type, lhs
 }
 
 fn groupAuiPC(self: *Self, data: *const InstAuiPC) !void {
+    if (self.stallForBudget(1)) {
+        return;
+    }
     const offset = self.pc +% @as(u64, @bitCast(@as(i64, data.offset)));
     self.set(data.dst, u64, offset);
 }
@@ -303,7 +321,10 @@ fn groupMemory(self: *Self, data: *const InstMemory) !void {
         addr +%= offset;
     }
 
-    self.set(data.base, u64, addr);
+    // wb
+    if (data.value != data.base) {
+        self.set(data.base, u64, addr);
+    }
 }
 
 fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
@@ -319,8 +340,8 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
     }
 
     if (data.store) {
-        const value_a = self.get(data.dst_a, u64);
-        const value_b = self.get(data.dst_b, u64);
+        const value_a = self.get(data.value_a, u64);
+        const value_b = self.get(data.value_b, u64);
 
         switch (data.mode) {
             .m8 => try self.bus.store(addr, [2]u8, .{ @truncate(value_a), @truncate(value_b) }),
@@ -372,15 +393,18 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
             }
         }
 
-        self.set(data.dst_a, u64, value_a);
-        self.set(data.dst_b, u64, value_b);
+        self.set(data.value_a, u64, value_a);
+        self.set(data.value_b, u64, value_b);
     }
 
     if (data.post_inc) {
         addr +%= offset;
     }
 
-    self.set(data.base, u64, addr);
+    // wb
+    if (data.value_a != data.base and data.value_b != data.base) {
+        self.set(data.base, u64, addr);
+    }
 }
 
 fn groupBranch(self: *Self, data: *const InstBranch) !void {

@@ -45,6 +45,7 @@ pub fn destroy(self: *Self) void {
 
 pub fn resolveLabels(self: *Self, addr: usize) void {
     for (self.pending_labels.items) |label| {
+        std.debug.print("label {s}: {}\n", .{ label, addr });
         self.labels.putAssumeCapacity(label, addr);
     }
     self.pending_labels.clearRetainingCapacity();
@@ -121,7 +122,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
             .keyword => |keyword| {
                 size = switch (keyword) {
-                    .@".i8", .@".i16", .@".i32", .@".i64", .@".allocz" => size,
+                    .@".i8", .@".i16", .@".i32", .@".i64", .@".allocz", .@".embed" => size,
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 
@@ -212,6 +213,8 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"div.s32",
                 .@"mod.u32",
                 .@"mod.s32",
+                .@"slt.u32",
+                .@"slt.s32",
                 .@"and.i64",
                 .@"or.i64",
                 .@"xor.i64",
@@ -225,6 +228,8 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"div.s64",
                 .@"mod.u64",
                 .@"mod.s64",
+                .@"slt.u64",
+                .@"slt.s64",
                 => try self.parseProcessInstr(parser, keyword),
 
                 // ldr.s32 rd, ra
@@ -359,17 +364,17 @@ fn parseMovInstr(self: *Self, parser: *Parser) Error!void {
                     },
                     else => return parser.err("Expected logical shift left or arithmetic shift right, found {t}", .{tok.data}),
                 }
-
-                try self.inst(Inst{
-                    .move_reg = .{
-                        .dst = dst_reg,
-                        .value = rhs_reg,
-                        .left_amount = left_amount,
-                        .signed = signed,
-                        .right_amount = right_amount,
-                    },
-                });
             }
+
+            try self.inst(Inst{
+                .move_reg = .{
+                    .dst = dst_reg,
+                    .value = rhs_reg,
+                    .left_amount = left_amount,
+                    .signed = signed,
+                    .right_amount = right_amount,
+                },
+            });
         },
         else => return parser.err("Unexpected {t}", .{tok.data}),
     }
@@ -416,6 +421,8 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         .@"div.s32", .@"div.s64" => .divs,
         .@"mod.u32", .@"mod.u64" => .modu,
         .@"mod.s32", .@"mod.s64" => .mods,
+        .@"slt.u32", .@"slt.u64" => .sltu,
+        .@"slt.s32", .@"slt.s64" => .slts,
         else => unreachable,
     };
 
@@ -433,6 +440,8 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
         .@"div.s32",
         .@"mod.u32",
         .@"mod.s32",
+        .@"slt.u32",
+        .@"slt.s32",
         => .m32,
         else => .m64,
     };
@@ -600,8 +609,8 @@ fn parseMemoryPair(self: *Self, parser: *Parser, keyword: Token.Keyword) Error!v
             .signed = signed,
             .store = store,
             .post_inc = post_inc,
-            .dst_a = value_a,
-            .dst_b = value_b,
+            .value_a = value_a,
+            .value_b = value_b,
             .base = base,
             .offset = offset,
         },
@@ -753,6 +762,7 @@ fn inst(self: *Self, instr: Inst) Error!void {
     if (offset != 0) {
         try self.binary.appendNTimes(self.allocator, 0, @sizeOf(Inst) - offset);
     }
+
     try self.int(u32, @bitCast(instr));
 }
 

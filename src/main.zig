@@ -4,11 +4,13 @@ const Memory = @import("Memory.zig");
 const Assembler = @import("asm/Assembler.zig");
 const Cpu = @import("cpu/Cpu.zig");
 
+const c = @cImport(@cInclude("webp/encode.h"));
+
 const allocator = std.heap.page_allocator;
 
 pub fn main() !void {
     const cwd = std.fs.cwd();
-    const source = try cwd.readFileAlloc(allocator, "examples/test.asm", std.math.maxInt(usize));
+    const source = try cwd.readFileAlloc(allocator, "examples/qoi.asm", std.math.maxInt(usize));
 
     var as = try Assembler.create(allocator);
     defer as.destroy();
@@ -30,8 +32,18 @@ pub fn main() !void {
 
     while (true) {
         try cpu.clock();
-        if (cpu.pc == as.labels.get("_fail").?) {
-            std.debug.print("decoded: {x}\n", .{cpu.get(.r3, u32)});
+
+        if (cpu.pc == as.labels.get("loop_end_no_index").?) {
+            // std.debug.print("ptr: {x} < {x}\n", .{ cpu.get(.r9, u64), cpu.get(.r10, u64) });
+        }
+        if (cpu.pc == as.labels.get("pussy").?) {
+            std.debug.print("decoded: {x}\n", .{cpu.get(.r0, u32)});
+            var ptr: [*c]u8 = undefined;
+            const size = c.WebPEncodeLosslessRGBA(memory.raw.ptr, 4096, 2048, 4096 * 4, &ptr);
+            try std.fs.cwd().writeFile(.{
+                .data = ptr[0..size],
+                .sub_path = "test.webp",
+            });
         }
     }
 }

@@ -69,6 +69,9 @@ pub const ProcessCode = enum(u4) {
     divs,
     modu,
     mods,
+
+    sltu,
+    slts,
     _,
 };
 
@@ -244,8 +247,8 @@ pub const InstMemoryPair = packed struct(u32) {
     store: bool,
     post_inc: bool,
 
-    dst_a: Reg,
-    dst_b: Reg,
+    value_a: Reg,
+    value_b: Reg,
     base: Reg,
     offset: i8,
 };

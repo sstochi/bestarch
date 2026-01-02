@@ -30,6 +30,8 @@ pub const Keyword = enum(u8) {
     @"div.s32",
     @"mod.u32",
     @"mod.s32",
+    @"slt.u32",
+    @"slt.s32",
 
     @"and.i64",
     @"or.i64",
@@ -44,6 +46,8 @@ pub const Keyword = enum(u8) {
     @"div.s64",
     @"mod.u64",
     @"mod.s64",
+    @"slt.u64",
+    @"slt.s64",
 
     @"bra.eq",
     @"bra.ne",
