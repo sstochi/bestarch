@@ -1,7 +1,7 @@
 _buffer:
     .allocz     0x4c4b400
 _data:
-    .embed      "/home/silk/Documents/sky.qoi"
+    .embed      "/home/silk/Documents/test.qoi"
 
 _pointers:
     .i64    ._data
@@ -81,10 +81,10 @@ _start:
 
     loop:
         # decrement run if > 0
-        bra.eq          zr, r12, .skip
-        sub.i32         r12, r12, 0x1
-        jmp             zr, .loop_end_no_index
-    skip:
+        slt.u32         r0, zr, r12
+        sub.i32         r12, r12, r0
+        bra.ne          zr, r0, .loop_end_no_index
+
         # load op from data ptr, inc it by 1 after
         ldr.u8          r0, r8 + 1!
         

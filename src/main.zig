@@ -39,7 +39,13 @@ pub fn main() !void {
         if (cpu.pc == as.labels.get("pussy").?) {
             std.debug.print("decoded: {x}\n", .{cpu.get(.r0, u32)});
             var ptr: [*c]u8 = undefined;
-            const size = c.WebPEncodeLosslessRGBA(memory.raw.ptr, 4096, 2048, 4096 * 4, &ptr);
+            const size = c.WebPEncodeLosslessRGBA(
+                memory.raw.ptr,
+                558,
+                424,
+                558 * 4,
+                &ptr,
+            );
             try std.fs.cwd().writeFile(.{
                 .data = ptr[0..size],
                 .sub_path = "test.webp",
