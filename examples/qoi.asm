@@ -70,7 +70,7 @@ _start:
         sub.i32         r12, r12, r0
         bra.ne          zr, r0, .loop_end_no_index
 
-        # load op from data ptr, inc it by 1 after
+        # load op from data ptr, inc by 1 after
         ldr.u8          r0, r8 + 1!
         
         # QOI_OP_RGB
@@ -81,25 +81,11 @@ _start:
         mov             r1, 0xff
         bra.eq          r0, r1, .qoi_op_rgba
 
-
-        # apply QOI_MASK2
-        and.i32         r2, r0, 0xc0 
-
-        # QOI_OP_INDEX
-        mov             r1, 0x00
-        bra.eq          r2, r1, .qoi_op_index
-
-        # QOI_OP_DIFF
-        mov             r1, 0x40
-        bra.eq          r2, r1, .qoi_op_diff
-
-        # QOI_OP_LUMA
-        mov             r1, 0x80
-        bra.eq          r2, r1, .qoi_op_luma
-
-        # QOI_OP_RUN
-        mov             r1, 0xc0
-        bra.eq          r2, r1, .qoi_op_run
+        # apply QOI_MASK2, calculate addr
+        aui.pc          r1, .qoi_op_index
+        and.i32         r2, r0, 0xc0
+        add.i32         r1, r1, r2
+        jmp             zr, r1
     
     # load rgb
     qoi_op_rgb:
@@ -120,6 +106,7 @@ _start:
         ldp.u8          r13, r14, r0 + 2!
         ldp.u8          r15, r16, r0 + 2!
         jmp             zr, .loop_end_no_index
+        .allocz         0x30                # 48 padding
 
     # diff
     qoi_op_diff:
@@ -141,6 +128,7 @@ _start:
         add.i32         r15, r15, r1
 
         jmp             zr, .loop_end
+        .allocz         0x14            # 20 padding
 
     qoi_op_luma:
         and.i32         r0, r0, 0x3f
@@ -163,10 +151,12 @@ _start:
         add.i32         r13, r13, r2
 
         jmp             zr, .loop_end
+        .allocz         0x10            # 16 padding
 
     qoi_op_run:
         and.i32         r12, r0, 0x3f
         jmp             zr, .loop_end_no_index
+        .allocz         0x38            # 56 padding
 
     loop_end:
         # calculate hash
