@@ -1,5 +1,5 @@
 const std = @import("std");
-const isa = @import("../cpu/isa.zig");
+const isa = @import("../isa.zig");
 const Assembler = @import("Assembler.zig");
 const Token = @import("Token.zig");
 const Reg = isa.Reg;

@@ -4,7 +4,7 @@ const target_endian = builtin.target.cpu.arch.endian();
 
 const Token = @import("Token.zig");
 const Parser = @import("Parser.zig");
-const isa = @import("../cpu/isa.zig");
+const isa = @import("../isa.zig");
 const Inst = isa.Inst;
 const ProcessCode = isa.ProcessCode;
 const MemorySize1 = isa.MemorySize1;

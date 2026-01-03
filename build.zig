@@ -4,53 +4,27 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    {
-        const exe = b.addExecutable(.{
-            .name = "assembler",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/main.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
-        exe.use_llvm = true;
-        exe.linkLibC();
-        exe.linkSystemLibrary("webp");
+    const exe = b.addExecutable(.{
+        .name = "assembler",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    exe.use_llvm = true;
+    exe.linkLibC();
+    exe.linkSystemLibrary("webp");
 
-        b.installArtifact(exe);
+    b.installArtifact(exe);
 
-        const run_step = b.step("run", "Run the app");
-        const run_cmd = b.addRunArtifact(exe);
-        run_step.dependOn(&run_cmd.step);
+    const run_step = b.step("run", "Run the app");
+    const run_cmd = b.addRunArtifact(exe);
+    run_step.dependOn(&run_cmd.step);
 
-        run_cmd.step.dependOn(b.getInstallStep());
+    run_cmd.step.dependOn(b.getInstallStep());
 
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
-    }
-
-    {
-        const exe = b.addExecutable(.{
-            .name = "data",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("src/cpu/data.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
-        exe.use_llvm = true;
-
-        b.installArtifact(exe);
-
-        const run_step = b.step("data", "Run the app");
-        const run_cmd = b.addRunArtifact(exe);
-        run_step.dependOn(&run_cmd.step);
-
-        run_cmd.step.dependOn(b.getInstallStep());
-
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
     }
 }
