@@ -10,30 +10,16 @@ _pointers:
 _qoi_magic:
     .i64    0x716F6966
     
+# integers in qoi are big-endian :(
 _qoi_read_32:
-# prepare mask & load u32
-    ldr.u32     r4, r8 + 4!         # load + post inc (wb)
-    mov         r1, 0xFF lsl 24     # 0xFF000000
-    mov         r2, 0x0
+    ldp.u8      r2, r3, r8 + 2!
+    ldp.u8      r4, r5, r8 + 2!
 
-    and.i64     r3, r4, r1          # 0xFF000000
-    lsr.u64     r3, r3, 24
-    or.i64      r2, r2, r3
-    
-    and.i64     r3, r4, r1 lsr 8    # 0x00FF0000
-    lsr.u64     r3, r3, 8
-    or.i64      r2, r2, r3
-
-    and.i64     r3, r4, r1 lsr 16   # 0x0000FF00
-    lsl.i64     r3, r3, 8
-    or.i64      r2, r2, r3
-
-    and.i64     r3, r4, r1 lsr 24   # 0x000000FF
-    lsl.i64     r3, r3, 24
-    or.i64      r1, r2, r3
+    orr.i32     r1, r5, r2 lsl 24
+    orr.i32     r1, r1, r3 lsl 16
+    orr.i32     r1, r1, r4 lsl 8
 
     jmp         zr, r0         # return to link
-
 
 _fail:
     jmp         zr, ._fail
@@ -46,22 +32,22 @@ _start:
     ldr.i64     r8, r9 + 8!
     ldr.i64     r9, r9
 
-# check magic
+    # check magic
     jmp         r0, ._qoi_read_32
     aui.pc      r0,  ._qoi_magic
     ldr.u32     r0,  r0             # read magic
     bra.ne      r1,  r0, ._fail
 
-# calculate end
-#   r10 - end ptr
+    # read w, h
     jmp         r0, ._qoi_read_32
     mov         r10,  r1
     jmp         r0, ._qoi_read_32
-    mov         r11,  r1
-    mul.i64     r10, r10, r11 lsl 0x2
+
+#   r10 - end ptr
+    mul.i64     r10, r10, r1 lsl 0x2
     add.i64     r10, r10, r9
 
-    # skip channels
+    # skip channels, colorspace...
     add.i64     r8, r8, 0x2 
 
 #   r11 - index table ptr
@@ -72,8 +58,7 @@ _start:
 #   r16 - a
     sub.i64     sp, sp, 256 # allocate index table on stack
     mov         r11, sp
-
-    mov         r12, 0x0
+    mov         r12, 0x0    # seperate for performance
     mov         r13, 0x0
     mov         r14, 0x0
     mov         r15, 0x0
@@ -171,7 +156,6 @@ _start:
         
         # calc both right away
         and.i32         r1, r1, 0x0f
-        and.i32         r2, r2, 0x0f
         add.i32         r1, r1, r0
         add.i32         r2, r2, r0
 

@@ -375,20 +375,20 @@ fn groupMemoryPair(self: *Self, data: *const InstMemoryPair) !void {
         } else {
             switch (data.mode) {
                 .m8 => {
-                    const a, const b = try self.bus.load(addr, [2]i8);
-                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                    const a, const b = try self.bus.load(addr, [2]u8);
+                    value_a, value_b = .{ a, b };
                 },
                 .m16 => {
-                    const a, const b = try self.bus.load(addr, [2]i16);
-                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                    const a, const b = try self.bus.load(addr, [2]u16);
+                    value_a, value_b = .{ a, b };
                 },
                 .m32 => {
-                    const a, const b = try self.bus.load(addr, [2]i32);
-                    value_a, value_b = .{ @bitCast(@as(i64, a)), @bitCast(@as(i64, b)) };
+                    const a, const b = try self.bus.load(addr, [2]u32);
+                    value_a, value_b = .{ a, b };
                 },
                 .m64 => {
-                    const a, const b = try self.bus.load(addr, [2]i64);
-                    value_a, value_b = .{ @bitCast(a), @bitCast(b) };
+                    const a, const b = try self.bus.load(addr, [2]u64);
+                    value_a, value_b = .{ a, b };
                 },
             }
         }

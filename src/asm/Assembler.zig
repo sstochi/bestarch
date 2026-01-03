@@ -201,7 +201,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 // and.i32 rd, ra, i12
                 // sub.i64, ra, rb
                 .@"and.i32",
-                .@"or.i32",
+                .@"orr.i32",
                 .@"xor.i32",
                 .@"lsl.i32",
                 .@"lsr.u32",
@@ -216,7 +216,7 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
                 .@"slt.u32",
                 .@"slt.s32",
                 .@"and.i64",
-                .@"or.i64",
+                .@"orr.i64",
                 .@"xor.i64",
                 .@"lsl.i64",
                 .@"lsr.u64",
@@ -409,7 +409,7 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
 
     const code: ProcessCode = switch (keyword) {
         .@"and.i32", .@"and.i64" => .@"and",
-        .@"or.i32", .@"or.i64" => .@"or",
+        .@"orr.i32", .@"orr.i64" => .@"or",
         .@"xor.i32", .@"xor.i64" => .xor,
         .@"lsl.i32", .@"lsl.i64" => .shl,
         .@"lsr.u32", .@"lsr.u64" => .shr,
@@ -428,7 +428,7 @@ fn parseProcessInstr(self: *Self, parser: *Parser, keyword: Token.Keyword) Error
 
     const mode: MemorySize1 = switch (keyword) {
         .@"and.i32",
-        .@"or.i32",
+        .@"orr.i32",
         .@"xor.i32",
         .@"lsl.i32",
         .@"lsr.u32",

@@ -18,7 +18,7 @@ pub const Keyword = enum(u8) {
     @"aui.pc",
 
     @"and.i32",
-    @"or.i32",
+    @"orr.i32",
     @"xor.i32",
     @"lsl.i32",
     @"lsr.u32",
@@ -34,7 +34,7 @@ pub const Keyword = enum(u8) {
     @"slt.s32",
 
     @"and.i64",
-    @"or.i64",
+    @"orr.i64",
     @"xor.i64",
     @"lsl.i64",
     @"lsr.u64",
