@@ -8,8 +8,8 @@ _pointers:
     .i64    ._buffer
 
 _qoi_magic:
-    .i64    0x716F6966
-    
+    .i32    0x716F6966
+
 # integers in qoi are big-endian :(
 _qoi_read_32:
     ldp.u8      r2, r3, r8 + 2!
@@ -48,7 +48,7 @@ _start:
     add.i64     r10, r10, r9
 
     # skip channels, colorspace...
-    add.i64     r8, r8, 0x2 
+    add.i64     r8, r8, 0x2
 
 #   r11 - index table ptr
 #   r12 - run
@@ -72,11 +72,11 @@ _start:
 
         # load op from data ptr, inc by 1 after
         ldr.u8          r0, r8 + 1!
-        
+
         # QOI_OP_RGB
         mov             r1, 0xfe
         bra.eq          r0, r1, .qoi_op_rgb
-        
+
         # QOI_OP_RGBA
         mov             r1, 0xff
         bra.eq          r0, r1, .qoi_op_rgba
@@ -86,7 +86,7 @@ _start:
         and.i32         r2, r0, 0xc0
         add.i32         r1, r1, r2
         jmp             zr, r1
-    
+
     # load rgb
     qoi_op_rgb:
         ldp.u8          r13, r14, r8 + 2!
@@ -134,14 +134,14 @@ _start:
         and.i32         r0, r0, 0x3f
         sub.i32         r0, r0, 0x20
         add.i32         r14, r14, r0    # g += vg
-        
+
         # in next calculations we use only vg - 8
         sub.i32         r0, r0, 0x8
 
         # load "b2"
         ldr.u8          r1, r8 + 1!
         lsr.u32         r2, r1, 0x4
-        
+
         # calc both right away
         and.i32         r1, r1, 0x0f
         add.i32         r1, r1, r0
@@ -182,4 +182,4 @@ loop_end_no_index:
         add.i64         sp, sp, 256
 
 pussy:
-        jmp zr, .pussy  # stall 
+        jmp zr, .pussy  # stall
