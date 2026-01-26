@@ -45,7 +45,6 @@ pub fn destroy(self: *Self) void {
 
 pub fn resolveLabels(self: *Self, addr: usize) void {
     for (self.pending_labels.items) |label| {
-        std.debug.print("label {s}: {}\n", .{ label, addr });
         self.labels.putAssumeCapacity(label, addr);
     }
     self.pending_labels.clearRetainingCapacity();
@@ -122,7 +121,7 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
             .keyword => |keyword| {
                 size = switch (keyword) {
-                    .@".i8", .@".i16", .@".i32", .@".i64", .@".allocz", .@".embed" => size,
+                    .@".const_i8", .@".const_i16", .@".const_i32", .@".const_i64", .@".allocz", .@".embed" => size,
                     else => (size + 3) & ~@as(usize, 0x3),
                 };
 
@@ -130,10 +129,10 @@ fn parseLabel(self: *Self, parser: *Parser, binary_size: usize) Error!usize {
 
                 // increment by size
                 size += switch (keyword) {
-                    .@".i8" => @sizeOf(i8),
-                    .@".i16" => @sizeOf(i16),
-                    .@".i32" => @sizeOf(i32),
-                    .@".i64" => @sizeOf(i64),
+                    .@".const_i8" => @sizeOf(i8),
+                    .@".const_i16" => @sizeOf(i16),
+                    .@".const_i32" => @sizeOf(i32),
+                    .@".const_i64" => @sizeOf(i64),
                     .@".allocz" => try parser.integer(u64),
                     .@".embed" => blk: {
                         const literal = try parser.literal();
@@ -163,10 +162,10 @@ fn parseInst(self: *Self, parser: *Parser) Error!void {
         .keyword => |keyword| {
             switch (keyword) {
                 // constants
-                .@".i8" => try parseConstant(self, parser, i8),
-                .@".i16" => try parseConstant(self, parser, i16),
-                .@".i32" => try parseConstant(self, parser, i32),
-                .@".i64" => try parseConstant(self, parser, i64),
+                .@".const_i8" => try parseConstant(self, parser, i8),
+                .@".const_i16" => try parseConstant(self, parser, i16),
+                .@".const_i32" => try parseConstant(self, parser, i32),
+                .@".const_i64" => try parseConstant(self, parser, i64),
 
                 .@".allocz" => try self.binary.appendNTimes(
                     self.allocator,

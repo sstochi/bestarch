@@ -22,8 +22,6 @@ const InstIrq = isa.InstIrq;
 
 pub const register_count = 1 << @bitSizeOf(Reg);
 pub const control_register_count = 1 << @bitSizeOf(CtlReg);
-pub const l1_cache_size = 1024;
-pub const l2_cache_size = 4096;
 
 pub fn Cpu(comptime mode: enum { accurate, fast }) type {
     return struct {
@@ -135,25 +133,6 @@ pub fn Cpu(comptime mode: enum { accurate, fast }) type {
             }
 
             self.cycle = std.math.maxInt(u16);
-            return false;
-        }
-
-        fn stallMemoryAccess(self: *Self, addr: u64, budget: u16) bool {
-            if (mode == .fast) {
-                return false;
-            }
-
-            const saddr: i64 = @bitCast(addr);
-            const diff = @abs(self.last_mem_access - saddr);
-
-            const cost = 4 + @as(u16, @intFromBool(diff > l1_cache_size)) * 16 +
-                @as(u16, @intFromBool(diff > l2_cache_size)) * 228;
-
-            if (self.stallForBudget(budget + cost)) {
-                return true;
-            }
-
-            self.last_mem_access = saddr;
             return false;
         }
 
@@ -296,7 +275,7 @@ pub fn Cpu(comptime mode: enum { accurate, fast }) type {
                 addr +%= offset;
             }
 
-            if (self.stallMemoryAccess(addr, 1)) {
+            if (self.stallForBudget(2)) {
                 return;
             }
 
@@ -344,7 +323,7 @@ pub fn Cpu(comptime mode: enum { accurate, fast }) type {
                 addr +%= offset;
             }
 
-            if (self.stallMemoryAccess(addr, 1)) {
+            if (self.stallForBudget(4)) {
                 return;
             }
 
@@ -459,7 +438,7 @@ pub fn Cpu(comptime mode: enum { accurate, fast }) type {
             // memory read (2 cycles) * register count + pc read
             switch (data.mode) {
                 .swi => {
-                    if (self.stallMemoryAccess(self.get(.sp, u64), register_count * 2 + 1)) {
+                    if (self.stallForBudget(register_count * 2 + 1)) {
                         return;
                     }
 
@@ -469,7 +448,7 @@ pub fn Cpu(comptime mode: enum { accurate, fast }) type {
                 },
 
                 .ret => {
-                    if (self.stallMemoryAccess(self.get(.sp, u64), register_count * 2)) {
+                    if (self.stallForBudget(register_count * 2)) {
                         return;
                     }
 

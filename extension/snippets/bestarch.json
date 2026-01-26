@@ -363,89 +363,89 @@
     ],
     "description": "Store 64-bit value"
   },
-  "Load Multiple signed 8-bit": {
-    "prefix": "ldm.s8",
+  "Load Pair signed 8-bit": {
+    "prefix": "ldp.s8",
     "body": [
-      "ldm.s8 ${1:reg}"
+      "ldp.s8 ${1:reg}"
     ],
-    "description": "Load signed 8-bit value"
+    "description": "Load pair of signed 8-bit values"
   },
-  "Load Multiple unsigned 8-bit": {
-    "prefix": "ldm.u8",
+  "Load Pair unsigned 8-bit": {
+    "prefix": "ldp.u8",
     "body": [
-      "ldm.u8 ${1:reg}"
+      "ldp.u8 ${1:reg}"
     ],
-    "description": "Load unsigned 8-bit value"
+    "description": "Load pair of unsigned 8-bit values"
   },
-  "Load Multiple signed 16-bit": {
-    "prefix": "ldm.s16",
+  "Load Pair signed 16-bit": {
+    "prefix": "ldp.s16",
     "body": [
-      "ldm.s16 ${1:reg}"
+      "ldp.s16 ${1:reg}"
     ],
-    "description": "Load signed 16-bit value"
+    "description": "Load pair of signed 16-bit values"
   },
-  "Load Multiple unsigned 16-bit": {
-    "prefix": "ldm.u16",
+  "Load Pair unsigned 16-bit": {
+    "prefix": "ldp.u16",
     "body": [
-      "ldm.u16 ${1:reg}"
+      "ldp.u16 ${1:reg}"
     ],
-    "description": "Load unsigned 16-bit value"
+    "description": "Load pair of unsigned 16-bit values"
   },
-  "Load Multiple signed 32-bit": {
-    "prefix": "ldm.s32",
+  "Load Pair signed 32-bit": {
+    "prefix": "ldp.s32",
     "body": [
-      "ldm.s32 ${1:reg}"
+      "ldp.s32 ${1:reg}"
     ],
-    "description": "Load signed 32-bit value"
+    "description": "Load pair of signed 32-bit values"
   },
-  "Load Multiple unsigned 32-bit": {
-    "prefix": "ldm.u32",
+  "Load Pair unsigned 32-bit": {
+    "prefix": "ldp.u32",
     "body": [
-      "ldm.u32 ${1:reg}"
+      "ldp.u32 ${1:reg}"
     ],
-    "description": "Load unsigned 32-bit value"
+    "description": "Load pair of unsigned 32-bit values"
   },
-  "Load Multiple signed 64-bit": {
-    "prefix": "ldm.s64",
+  "Load Pair signed 64-bit": {
+    "prefix": "ldp.s64",
     "body": [
-      "ldm.s64 ${1:reg}"
+      "ldp.s64 ${1:reg}"
     ],
-    "description": "Load signed 64-bit value"
+    "description": "Load pair of signed 64-bit values"
   },
-  "Load Multiple unsigned 64-bit": {
-    "prefix": "ldm.u64",
+  "Load Pair unsigned 64-bit": {
+    "prefix": "ldp.u64",
     "body": [
-      "ldm.u64 ${1:reg}"
+      "ldp.u64 ${1:reg}"
     ],
-    "description": "Load unsigned 64-bit value"
+    "description": "Load pair of unsigned 64-bit values"
   },
-  "Store Multiple 8-bit": {
+  "Store Pair 8-bit": {
     "prefix": "stm.i8",
     "body": [
       "stm.i8 ${1:reg}"
     ],
-    "description": "Store 8-bit value"
+    "description": "Store pair of 8-bit values"
   },
-  "Store Multiple 16-bit": {
+  "Store Pair 16-bit": {
     "prefix": "stm.i16",
     "body": [
       "stm.i16 ${1:reg}"
     ],
-    "description": "Store 16-bit value"
+    "description": "Store pair of 16-bit values"
   },
-  "Store Multiple 32-bit": {
+  "Store Pair 32-bit": {
     "prefix": "stm.i32",
     "body": [
       "stm.i32 ${1:reg}"
     ],
-    "description": "Store 32-bit value"
+    "description": "Store pair of 32-bit values"
   },
-  "Store Multiple 64-bit": {
+  "Store Pair 64-bit": {
     "prefix": "stm.i64",
     "body": [
       "stm.i64 ${1:reg}"
     ],
-    "description": "Store 64-bit value"
+    "description": "Store pair 64-bit values"
   },
   "Control Write": {
     "prefix": "ctl.w",
@@ -494,14 +494,14 @@
     "body": [
       "psh ${1:reg}"
     ],
-    "description": "Push register(s) onto the stack"
+    "description": "Push register onto the stack"
   },
   "Pop": {
     "prefix": "pop",
     "body": [
       "pop ${1:reg}"
     ],
-    "description": "Pop register(s) from the stack"
+    "description": "Pop register from the stack"
   },
   "Register r0": {
     "prefix": "r0",
@@ -720,17 +720,17 @@
     ],
     "description": "Register 30"
   },
-  "Register rsp": {
-    "prefix": "rsp",
+  "Stack pointer": {
+    "prefix": "sp",
     "body": [
-      "rsp"
+      "sp"
     ],
-    "description": "Stack Register"
+    "description": "Stack pointer"
   },
   "Register rz": {
-    "prefix": "rz",
+    "prefix": "zr",
     "body": [
-      "rz"
+      "zr"
     ],
     "description": "Zero register"
   },

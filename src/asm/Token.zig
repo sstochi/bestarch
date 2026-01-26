@@ -6,10 +6,10 @@ const CtlReg = isa.CtlReg;
 const Self = @This();
 
 pub const Keyword = enum(u8) {
-    @".i8",
-    @".i16",
-    @".i32",
-    @".i64",
+    @".const_i8",
+    @".const_i16",
+    @".const_i32",
+    @".const_i64",
     @".allocz",
     @".embed",
 

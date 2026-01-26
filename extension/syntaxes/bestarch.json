@@ -7,7 +7,7 @@
     },
     {
       "name": "keyword.bestarch",
-      "match": "(?:\\.i8|\\.i16|\\.i32|\\.i64\\.alloc)\\b"
+      "match": "(?:\\.const_i8|\\.const_i16|\\.const_i32|\\.const_i64\\.allocz\\.embed)\\b"
     },
     {
       "name": "variable.bestarch",

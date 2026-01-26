@@ -1,14 +1,14 @@
 _buffer:
-    .allocz     0x4c4b400
+    .allocz         0x4c4b400
 _data:
-    .embed      "/home/silk/Documents/test.qoi"
+    .embed          "/home/silk/Documents/test.qoi"
 
 _pointers:
-    .i64    ._data
-    .i64    ._buffer
+    .const_i64      ._data
+    .const_i64      ._buffer
 
 _qoi_magic:
-    .i32    0x716F6966
+    .const_i32      0x716F6966
 
 # integers in qoi are big-endian :(
 _qoi_read_32:
@@ -182,4 +182,4 @@ loop_end_no_index:
         add.i64         sp, sp, 256
 
 pussy:
-        jmp zr, .pussy  # stall
+        jmp zr,         .pussy  # stall
