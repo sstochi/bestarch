@@ -31,12 +31,12 @@ pub fn main() !void {
 
     @memcpy(memory.raw[0..as.binary.items.len], as.binary.items);
 
-    const pussy = as.labels.get("pussy").?;
+    const stall = as.labels.get("stall").?;
 
     while (true) {
         try cpu.clock();
 
-        if (cpu.pc == pussy) {
+        if (cpu.pc == stall) {
             var ptr: [*c]u8 = undefined;
             const size = c.WebPEncodeLosslessRGBA(
                 memory.raw.ptr,
