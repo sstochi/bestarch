@@ -182,4 +182,4 @@ loop_end_no_index:
         add.i64         sp, sp, 256
 
 stall:
-        jmp zr,         .pussy  # stall
+        jmp zr,         .stall  # stall
