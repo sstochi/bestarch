@@ -1,7 +1,7 @@
 _buffer:
     .allocz         0x4c4b400
 _data:
-    .embed          "/home/silk/Pictures/booty2.qoi"
+    .embed          "test.qoi"
 
 _pointers:
     .const_i64      ._data
