@@ -40,9 +40,9 @@ pub fn main() !void {
             var ptr: [*c]u8 = undefined;
             const size = c.WebPEncodeLosslessRGBA(
                 memory.raw.ptr,
-                4000,
-                5000,
-                4000 * 4,
+                1505,
+                2175,
+                1505 * 4,
                 &ptr,
             );
             try std.fs.cwd().writeFile(.{

@@ -114,34 +114,31 @@ pub const MoveMode = enum(u2) {
 
 pub const InstMoveImm = packed struct(u32) {
     group: Group = .move,
-
     mode: MoveMode = .imm,
-
     dst: Reg,
+
     imm: i21,
 };
 
 pub const InstMoveImmShift = packed struct(u32) {
     group: Group = .move,
-
     mode: MoveMode = .imm_shift,
-
     dst: Reg,
+
     value: i15,
     left_amount: u6,
 };
 
 pub const InstMoveReg = packed struct(u32) {
     group: Group = .move,
-    reserved: u3 = 0,
-
     mode: MoveMode = .reg,
-
     dst: Reg,
+
     value: Reg,
     left_amount: u6,
     signed: bool,
     right_amount: u6,
+    reserved: u3 = 0,
 };
 
 const MoveCvtCode = enum(u5) {
@@ -167,21 +164,20 @@ const MoveCvtCode = enum(u5) {
 
 pub const InstMoveCvt = packed struct(u32) {
     group: Group = .move,
-    reserved: u11 = 0,
-
     mode: MoveMode = .cvt,
-    code: MoveCvtCode,
-
     dst: Reg,
     src: Reg,
+
+    code: MoveCvtCode,
+    reserved: u11 = 0,
 };
 
 pub const InstMove = packed struct(u32) {
     group: Group = .move,
-    reserved: u21,
-
     mode: MoveMode,
     dst: Reg,
+
+    reserved: u21,
 };
 
 pub const InstAuiPC = packed struct(u32) {
@@ -218,14 +214,13 @@ pub const InstProcessReg = packed struct(u32) {
 
 pub const InstProcess = packed struct(u32) {
     group: Group = .process,
-    reserved: u12,
-
     code: ProcessCode,
     size: MemorySize1,
 
     dst: Reg,
     lhs: Reg,
     rhs_mode: ProcessMode,
+    reserved: u12,
 };
 
 pub const InstMemory = packed struct(u32) {
