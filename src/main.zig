@@ -49,7 +49,8 @@ pub fn main() !void {
                 .data = ptr[0..size],
                 .sub_path = "test.webp",
             });
-            std.debug.print("puss!\n", .{});
+            std.debug.print("done!\n", .{});
+            return;
         }
     }
 }
